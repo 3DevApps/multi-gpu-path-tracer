@@ -1473,4 +1473,20 @@ __host__ std::ostream& operator<<(std::ostream& os, const float3& vec) {
     os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")";
     return os;
 }
+////////////////////////////////////////////////////////////////////////////////
+// random generators
+////////////////////////////////////////////////////////////////////////////////
+inline __device__ float3 make_random_float3(curandState *local_rand_state) {
+    return make_float3(curand_uniform(local_rand_state), curand_uniform(local_rand_state), curand_uniform(local_rand_state));
+}
+inline __device__ float3 make_random_float3(float max,float min,curandState *local_rand_state) {
+    return make_float3(curand_uniform(local_rand_state)*(max-min)+min, curand_uniform(local_rand_state)*(max-min)+min, curand_uniform(local_rand_state)*(max-min)+min);
+}
+inline __device__ float3 random_in_unit_sphere(curandState *local_rand_state) {
+    float3 p;
+    do {
+        p = 2.0f * make_random_float3(local_rand_state) - make_float3(1.0f);
+    } while (dot(p, p) >= 1.0f);
+    return p;
+}
 #endif
