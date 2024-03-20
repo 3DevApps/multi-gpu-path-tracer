@@ -9,4 +9,4 @@ find_package(CUDA REQUIRED)
 include_directories(${CUDA_INCLUDE_DIRS})
 
 file(GLOB SOURCES "src/*.cpp" "src/*.cu")
-add_executable(cuda_project main.cu)
+add_executable(cuda_project src/main.cu)

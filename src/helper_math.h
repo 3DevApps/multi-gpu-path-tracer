@@ -271,7 +271,7 @@ inline __host__ __device__ int2 operator-(int2 &a)
 {
     return make_int2(-a.x, -a.y);
 }
-inline __host__ __device__ float3 operator-(float3 &a)
+inline __host__ __device__ float3  operator-(const float3 &a)
 {
     return make_float3(-a.x, -a.y, -a.z);
 }
@@ -1427,6 +1427,28 @@ inline __host__ __device__ int4 abs(int4 v)
 inline __host__ __device__ float3 reflect(float3 i, float3 n)
 {
     return i - 2.0f * n * dot(n,i);
+}
+////////////////////////////////////////////////////////////////////////////////
+// refract
+////////////////////////////////////////////////////////////////////////////////
+// inline __host__ __device__ float3 refract(float3 i, float3 n, float etai_over_etat)
+// {
+//     float3 uv = normalize(i);
+//     auto cos_theta = fminf(dot(-uv, n), 1.0);
+//     float3 r_out_perp =  etai_over_etat * (uv + cos_theta*n);
+//     float3 r_out_parallel = -sqrt(fabs(1.0 - dot(r_out_perp,r_out_perp))) * n;
+//     return r_out_perp + r_out_parallel;
+// }
+__device__ bool refract(const float3& v, const float3& n, float ni_over_nt, float3& refracted) {
+    float3 uv = normalize(v);
+    float dt = dot(uv, n);
+    float discriminant = 1.0f - ni_over_nt*ni_over_nt*(1-dt*dt);
+    if (discriminant > 0) {
+        refracted = ni_over_nt*(uv - n*dt) - n*sqrt(discriminant);
+        return true;
+    }
+    else
+        return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

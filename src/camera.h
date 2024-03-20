@@ -24,6 +24,10 @@ public:
         horizontal = make_float3(16.0, 0.0, 0.0);
         vertical = make_float3(0.0, 9.0, 0.0);
         origin = make_float3(0.0, 0.0, 0.0);
+        // lower_left_corner = make_float3(-2.0, -1.0, -1.0);
+        // horizontal = make_float3(4.0, 0.0, 0.0);
+        // vertical = make_float3(0.0, 2.0, 0.0);
+        // origin = make_float3(0.0, 0.0, 0.0);
     }
     __device__ float3 ray_color(const ray& r, hitable **world, curandState *local_rand_state) {
         ray cur_ray = r;
