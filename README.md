@@ -17,8 +17,7 @@ cmake --build build
 ```
 
 > [!NOTE]
-> If you get `Cmake Error: could not load cache` error, then run the following command and re-run the build command.
-> `cmake -S . -B build`
+> If you get `Cmake Error: could not load cache` error, then run `cmake -S . -B build` and re-run the build command.
 
 3. Run the project
 
