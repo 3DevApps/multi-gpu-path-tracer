@@ -10,6 +10,7 @@
 #include "hitable.h"
 #include "camera.h"
 #include "material.h"
+#include "thrust/device_vector.h"
 
 
 
@@ -41,8 +42,8 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= nx) || (j >= ny)) return;
     int pixel_index = j*nx + i;
-    //Each thread gets same seed, a different sequence number, no offset
-    curand_init(1984, pixel_index, 0, &rand_state[pixel_index]);
+    //Each thread gets diffrent seed, same sequence number, no offset
+    curand_init(1984+pixel_index, 0, 0, &rand_state[pixel_index]);
 }
 
 /**
