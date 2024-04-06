@@ -16,8 +16,7 @@ include_directories(${CUDA_INCLUDE_DIRS})
 
 file(GLOB SOURCES "src/*.cpp" "src/*.cu" "tests/*.cpp")
 
-# add_executable(${PROJECT_NAME} src/main.cu)
-add_executable(${PROJECT_NAME} tests/scene.cpp)
+add_executable(${PROJECT_NAME} src/main.cu)
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC

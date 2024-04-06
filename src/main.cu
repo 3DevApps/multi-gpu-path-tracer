@@ -10,6 +10,8 @@
 #include "hitable.h"
 #include "camera.h"
 #include "material.h"
+#include "obj_loader.h"
+#include "object3d.h"
 
 
 
@@ -52,10 +54,11 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
    fb[pixel_index] = col/float(sample_per_pixel);
 }
 
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera) {
+__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d *obj) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        d_list[0] = new sphere(make_float3(0,0,-1), 0.5,
-                               new lambertian(make_float3(0.1, 0.2, 0.5)));
+        d_list[0] = obj->clone();
+        d_list[0]->print_gpu();
+
         d_list[1] = new sphere(make_float3(0,-100.5,-1), 100,
                                new lambertian(make_float3(0.8, 0.8, 0.0)));
         d_list[2] = new sphere(make_float3(1,0,-1), 0.5,
@@ -71,7 +74,7 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
 
 __global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera) {
     for(int i=0; i < 5; i++) {
-        delete ((sphere *)d_list[i])->mat_ptr;
+        // delete ((sphere *)d_list[i])->mat_ptr;
         delete d_list[i];
     }
     delete *d_world;
@@ -109,7 +112,15 @@ int main()
     checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
-    create_world<<<1,1>>>(d_list,d_world,d_camera);
+
+    // Load object
+    // TODO: this should be a parameter to the program
+    object3d *obj;
+    checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(object3d)));
+    obj_loader loader;
+    loader.load(obj, "models/monkey.obj");
+
+    create_world<<<1,1>>>(d_list,d_world,d_camera, obj);
     
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
