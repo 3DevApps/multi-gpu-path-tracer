@@ -7,16 +7,16 @@
 #include <unordered_map>
 #include <vector>
 #include "triangle.h"
-#include "object3d.h"
+#include "host_object3d.h"
 
 class obj_loader
 {
 public:
     obj_loader() {};
-    void load(object3d *obj, const char* path);
+    void load(host_object3d *obj, const char* path);
 };
 
-void obj_loader::load(object3d *obj, const char* path)
+void obj_loader::load(host_object3d *obj, const char* path)
 {
     Assimp::Importer importer;
     std::vector<triangle> triangles;

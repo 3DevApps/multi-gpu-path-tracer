@@ -12,6 +12,7 @@
 #include "material.h"
 #include "obj_loader.h"
 #include "object3d.h"
+#include "triangle.h"
 
 
 
@@ -54,19 +55,66 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
    fb[pixel_index] = col/float(sample_per_pixel);
 }
 
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d *obj) {
+__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, host_object3d *obj) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        d_list[0] = obj->clone();
-        d_list[0]->print_gpu();
+        // obj->set_material(new metal(make_float3(0.8, 0.6, 0.2),0.0));
 
-        d_list[1] = new sphere(make_float3(0,-100.5,-1), 100,
-                               new lambertian(make_float3(0.8, 0.8, 0.0)));
-        d_list[2] = new sphere(make_float3(1,0,-1), 0.5,
-                               new metal(make_float3(0.8, 0.6, 0.2),0.0));
-        d_list[3] = new sphere(make_float3(-1,0,-1), 0.5, //negative radius trick makes it face inwards
-                               new dielectric(1.5f));
-        d_list[4] = new sphere(make_float3(-1,0,-1), -0.45,
-                                 new dielectric(1.5));                    
+        // object3d obj1 = obj->clone();
+        // obj1.set_material(new metal(make_float3(0.8, 0.6, 0.2),0.0));
+
+        // d_list[0] = &obj1;
+        // d_list[1] = &obj1;
+        // d_list[2] = &obj1;
+        // d_list[3] = &obj1;
+        // d_list[4] = &obj1;
+
+        // d_list[0] = new object3d(obj->triangles, obj->num_triangles, obj->mat_ptr);
+        // d_list[1] = obj->clone();
+        // d_list[2] = obj->clone();
+        // d_list[3] = obj->clone();
+        // d_list[4] = obj->clone();
+
+        // printf("num_triangles: %d\n", obj->num_triangles);
+
+        // printf("triangle %f\n", obj->triangles[15].v0.x);
+        // d_list[0] = new object3d(obj->triangles, obj->num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[1] = new object3d(obj->triangles, obj->num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[2] = new object3d(obj->triangles, obj->num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[3] = new object3d(obj->triangles, obj->num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[4] = new object3d(obj->triangles, obj->num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+
+
+        // d_list[0]->print_gpu();
+
+
+        // d_list[1] = new object3d(new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[2] = new object3d( new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[3] = new object3d( new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[4] = new object3d( new metal(make_float3(0.8, 0.6, 0.2),0.0));
+
+        float3 v0 = make_float3(1,0,-1);
+        float3 v1 = make_float3(2,0,-1);
+        float3 v2 = make_float3(0,1,-1);
+
+        d_list[0] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        d_list[1] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        d_list[2] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        d_list[3] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        d_list[4] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+
+
+        // d_list[0]->print_gpu();
+
+        // d_list[0] = new sphere(make_float3(0,-100.5,-1), 100,
+                            //    new lambertian(make_float3(0.8, 0.8, 0.0)));
+        // d_list[1] = new sphere(make_float3(0,-100.5,-1), 100,
+        //                        new lambertian(make_float3(0.8, 0.8, 0.0)));
+        // d_list[2] = new sphere(make_float3(1,0,-1), 0.5,
+        //                        new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[3] = new sphere(make_float3(-1,0,-1), 0.5, //negative radius trick makes it face inwards
+        //                        new dielectric(1.5f));
+        // d_list[4] = new sphere(make_float3(-1,0,-1), -0.45,
+        //                          new dielectric(1.5));                    
         *d_world  = new hitable_list(d_list,5);
         *d_camera = new camera();
     }
@@ -115,12 +163,13 @@ int main()
 
     // Load object
     // TODO: this should be a parameter to the program
-    object3d *obj;
-    checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(object3d)));
+    host_object3d *obj;
+    checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(host_object3d)));
     obj_loader loader;
     loader.load(obj, "models/monkey.obj");
+        printf("triangle %f\n", obj->triangles[15].v0.x);
 
-    create_world<<<1,1>>>(d_list,d_world,d_camera, obj);
+    create_world<<<1,1>>>(d_list,d_world,d_camera,obj);
     
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
