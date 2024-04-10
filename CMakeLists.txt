@@ -14,7 +14,7 @@ find_package(CUDA REQUIRED)
 
 include_directories(${CUDA_INCLUDE_DIRS})
 
-file(GLOB SOURCES "src/*.cpp" "src/*.cu" "tests/*.cpp")
+file(GLOB SOURCES "src/*.cpp" "src/*.cu")
 
 add_executable(${PROJECT_NAME} src/main.cu)
 
