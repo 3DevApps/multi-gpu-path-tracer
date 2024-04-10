@@ -18,7 +18,6 @@ public:
 
 void obj_loader::load(object3d *obj, const char* path)
 {
-    printf("Loading obj file: %s\n", path);
     Assimp::Importer importer;
     std::vector<triangle> triangles;
 
@@ -32,8 +31,6 @@ void obj_loader::load(object3d *obj, const char* path)
     }
 
 
-    printf("Number of meshes: %d\n", scene->mNumMeshes);
-
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
         {
@@ -45,6 +42,7 @@ void obj_loader::load(object3d *obj, const char* path)
 
                 if (face.mNumIndices != 3)
                 {
+                    printf("Error: %s\n", "Face is not a triangle");
                     std::runtime_error("Face is not a triangle");
                     return;
                 }

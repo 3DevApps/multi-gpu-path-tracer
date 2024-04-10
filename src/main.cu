@@ -58,9 +58,11 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
 __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, triangle *triangles, int num_triangles) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         printf("Creating world %d\n", num_triangles);
+
+        material *mat = new metal(make_float3(0.8, 0.6, 0.2),0.0);
         
         for (int i = 0; i < num_triangles; i++) {
-            d_list[i] = new triangle(triangles[i].v0, triangles[i].v1, triangles[i].v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+            d_list[i] = new triangle(triangles[i].v0, triangles[i].v1, triangles[i].v2, mat);
         }
 
         // d_list[0] = new object3d(triangles, num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
