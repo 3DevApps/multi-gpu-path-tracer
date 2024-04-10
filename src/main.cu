@@ -55,8 +55,16 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
    fb[pixel_index] = col/float(sample_per_pixel);
 }
 
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, host_object3d *obj) {
+__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, triangle *triangles, int num_triangles) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
+        printf("Creating world %d\n", num_triangles);
+        
+        for (int i = 0; i < num_triangles; i++) {
+            d_list[i] = new triangle(triangles[i].v0, triangles[i].v1, triangles[i].v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        }
+
+        // d_list[0] = new object3d(triangles, num_triangles, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+
         // obj->set_material(new metal(make_float3(0.8, 0.6, 0.2),0.0));
 
         // object3d obj1 = obj->clone();
@@ -92,15 +100,23 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
         // d_list[3] = new object3d( new metal(make_float3(0.8, 0.6, 0.2),0.0));
         // d_list[4] = new object3d( new metal(make_float3(0.8, 0.6, 0.2),0.0));
 
-        float3 v0 = make_float3(1,0,-1);
-        float3 v1 = make_float3(2,0,-1);
-        float3 v2 = make_float3(0,1,-1);
+        // float3 v0 = make_float3(1,0,-1);
+        // float3 v1 = make_float3(2,0,-1);
+        // float3 v2 = make_float3(0,1,-1);
 
-        d_list[0] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
-        d_list[1] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
-        d_list[2] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
-        d_list[3] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
-        d_list[4] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[0] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[1] = new sphere(make_float3(0,-100.5,-1), 100,
+        //                        new lambertian(make_float3(0.8, 0.8, 0.0)));
+        // d_list[2] = new sphere(make_float3(1,0,-1), 0.5,
+        //                          new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[3] = new sphere(make_float3(-1,0,-1), 0.5, //negative radius trick makes it face inwards
+        //                             new dielectric(1.5f));
+        // d_list[4] = new sphere(make_float3(-1,0,-1), -0.45,
+        //                             new dielectric(1.5));
+        // d_list[0] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[2] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[3] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
+        // d_list[4] = new triangle(v0, v1, v2, new metal(make_float3(0.8, 0.6, 0.2),0.0));
 
 
         // d_list[0]->print_gpu();
@@ -115,7 +131,7 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
         //                        new dielectric(1.5f));
         // d_list[4] = new sphere(make_float3(-1,0,-1), -0.45,
         //                          new dielectric(1.5));                    
-        *d_world  = new hitable_list(d_list,5);
+        *d_world  = new hitable_list(d_list, num_triangles);
         *d_camera = new camera();
     }
 }
@@ -154,23 +170,34 @@ int main()
     checkCudaErrors(cudaMallocManaged((void **)&fb, fb_size));
 
     //create_world
+    // Load object
+    // TODO: this should be a parameter to the program
+    object3d *obj;
+    checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(object3d)));
+
+    obj_loader loader;
+    loader.load(obj, "models/cubes.obj");
+
+    // Create array of triangles from object
+    // TODO: this should be done in the obj_loader
+    triangle *triangles;
+    checkCudaErrors(cudaMallocManaged((void **)&triangles, obj->num_triangles * sizeof(triangle)));
+
+    for (int i = 0; i < obj->num_triangles; i++) {
+        triangles[i] = triangle(obj->triangles[i].v0, obj->triangles[i].v1, obj->triangles[i].v2);
+    }
+
     hitable **d_list;
-    checkCudaErrors(cudaMalloc((void **)&d_list, 5*sizeof(hitable *)));
+    checkCudaErrors(cudaMalloc((void **)&d_list, obj->num_triangles*sizeof(hitable *)));
     hitable **d_world;
     checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
-    // Load object
-    // TODO: this should be a parameter to the program
-    host_object3d *obj;
-    checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(host_object3d)));
-    obj_loader loader;
-    loader.load(obj, "models/monkey.obj");
-        printf("triangle %f\n", obj->triangles[15].v0.x);
-
-    create_world<<<1,1>>>(d_list,d_world,d_camera,obj);
     
+    // TODO: we should pass the object_3d and not triangles array
+    create_world<<<1,1>>>(d_list,d_world,d_camera,triangles, obj->num_triangles);
+
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
