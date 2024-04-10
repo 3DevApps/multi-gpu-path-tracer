@@ -13,13 +13,27 @@ class obj_loader
 {
 public:
     obj_loader() {};
-    void load(object3d *obj, const char* path);
+    int get_number_of_meshes(const char* path);
+    void get_number_of_faces(const char* path, int *num_faces);
+    void load(const char* path, object3d **objects);
 };
 
-void obj_loader::load(object3d *obj, const char* path)
+int obj_loader::get_number_of_meshes(const char* path)
 {
     Assimp::Importer importer;
-    std::vector<triangle> triangles;
+    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+    {
+        throw std::runtime_error(importer.GetErrorString());
+    }
+
+    return scene->mNumMeshes;
+}
+
+// Get number of meshes
+void obj_loader::get_number_of_faces(const char* path, int *num_faces){
+    Assimp::Importer importer;
 
     const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
 
@@ -28,6 +42,25 @@ void obj_loader::load(object3d *obj, const char* path)
         throw std::runtime_error(importer.GetErrorString());
     }
 
+    if (scene->HasMeshes()) {
+        for (unsigned int i = 0; i < scene->mNumMeshes; i++)
+        {
+            const aiMesh* mesh = scene->mMeshes[i];
+            num_faces[i] = mesh->mNumFaces;
+        }
+    }
+}
+
+void obj_loader::load(const char* path, object3d **objects)
+{
+    Assimp::Importer importer;
+
+    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+    {
+        throw std::runtime_error(importer.GetErrorString());
+    }
 
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
@@ -46,10 +79,10 @@ void obj_loader::load(object3d *obj, const char* path)
                 aiVector3D v2 = mesh->mVertices[face.mIndices[1]];
                 aiVector3D v3 = mesh->mVertices[face.mIndices[2]];
 
-                triangles.push_back(triangle(make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), make_float3(v3.x, v3.y, v3.z)));
+                objects[i]->triangles[j] = triangle(make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), make_float3(v3.x, v3.y, v3.z));
             }
+
+            objects[i]->num_triangles = mesh->mNumFaces;
         }
     }
-
-    obj->set_triangles(triangles.data(), triangles.size());
 }
