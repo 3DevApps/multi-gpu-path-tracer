@@ -11,6 +11,11 @@ class object3d: public hitable
         __device__ object3d(triangle *triangles, int size) : triangles(triangles), num_triangles(size) {};
         __device__ object3d(triangle *triangles, int size, material *mat_ptr);
         __device__ object3d(material *mat_ptr) : mat_ptr(mat_ptr) {};
+        __device__ ~object3d() {
+            delete triangles;
+            delete mat_ptr;
+        };
+
 
         void print();
         void set_triangles(triangle *triangles, int num_triangles);

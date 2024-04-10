@@ -8,6 +8,7 @@
 #include <vector>
 #include "triangle.h"
 #include "object3d.h"
+#include "material.h"
 
 class obj_loader
 {
@@ -82,7 +83,7 @@ void obj_loader::load(const char* path, object3d **objects)
                 objects[i]->triangles[j] = triangle(make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), make_float3(v3.x, v3.y, v3.z));
             }
 
-            objects[i]->num_triangles = mesh->mNumFaces;
+            objects[i]->num_triangles = mesh->mNumFaces;            
         }
     }
 }

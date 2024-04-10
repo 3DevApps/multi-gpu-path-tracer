@@ -74,11 +74,15 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera) {
-    for(int i=0; i < 5; i++) {
-        // delete ((sphere *)d_list[i])->mat_ptr;
+__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int num_objects, int num_meshes) {
+    for(int i=0; i < num_meshes; i++) {
         delete d_list[i];
     }
+
+    for (int i = 0; i < num_objects; i++) {
+        delete objects[i];
+    }
+
     delete *d_world;
     delete *d_camera;
     
@@ -110,7 +114,7 @@ int main()
     //create_world
 
     // Load object
-    const char *obj = "models/cube.obj";
+    const char *obj = "models/cubes.obj";
 
     obj_loader loader;
     int mesh_no = loader.get_number_of_meshes(obj);
@@ -140,20 +144,13 @@ int main()
     loader.load(obj, objects);
 
 
-    // test<<<1,1>>>(objects, mesh_no);
-    // checkCudaErrors(cudaGetLastError());
-    // checkCudaErrors(cudaDeviceSynchronize());
-
-
     hitable **d_list;
-    checkCudaErrors(cudaMalloc((void **)&d_list, meshes_total*sizeof(hitable *)));
+    checkCudaErrors(cudaMalloc((void **)&d_list, meshes_total * sizeof(hitable *)));
     hitable **d_world;
     checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
-    
-    // TODO: we should pass the object_3d and not triangles array
     create_world<<<1,1>>>(d_list,d_world,d_camera, objects, mesh_no, meshes_total);
 
     checkCudaErrors(cudaGetLastError());
@@ -170,7 +167,7 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
     //free_world
-    free_world<<<1, 1>>>(d_list, d_world,d_camera);
+    free_world<<<1, 1>>>(d_list, d_world,d_camera, objects, mesh_no, meshes_total);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
