@@ -25,16 +25,13 @@ void obj_loader::load(object3d *obj, const char* path)
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
-        printf("Error: %s\n", importer.GetErrorString());
-        std::runtime_error(importer.GetErrorString());
-        return;
+        throw std::runtime_error(importer.GetErrorString());
     }
 
 
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
         {
-            // Create array of triangles for each mesh
             const aiMesh* mesh = scene->mMeshes[i];
             for (unsigned int j = 0; j < mesh->mNumFaces; j++)
             {
@@ -42,9 +39,7 @@ void obj_loader::load(object3d *obj, const char* path)
 
                 if (face.mNumIndices != 3)
                 {
-                    printf("Error: %s\n", "Face is not a triangle");
-                    std::runtime_error("Face is not a triangle");
-                    return;
+                    throw std::runtime_error("Face is not a triangle");
                 }
 
                 aiVector3D v1 = mesh->mVertices[face.mIndices[0]];

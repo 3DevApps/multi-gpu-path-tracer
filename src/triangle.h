@@ -4,8 +4,6 @@
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
 #include "helper_math.h"
-#include <unordered_map>
-#include <vector>
 #include "hitable.h"
 
 class triangle: public hitable

@@ -172,8 +172,8 @@ int main()
     checkCudaErrors(cudaMallocManaged((void **)&fb, fb_size));
 
     //create_world
+
     // Load object
-    // TODO: this should be a parameter to the program
     object3d *obj;
     checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(object3d)));
 
