@@ -176,7 +176,7 @@ int main()
     checkCudaErrors(cudaMallocManaged((void **)&obj, sizeof(object3d)));
 
     obj_loader loader;
-    loader.load(obj, "models/cubes.obj");
+    loader.load(obj, "models/untitled.obj");
 
     // Create array of triangles from object
     // TODO: this should be done in the obj_loader
