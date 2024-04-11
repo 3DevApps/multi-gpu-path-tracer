@@ -25,9 +25,19 @@ void check_cuda(cudaError_t result, char const *const func, const char *const fi
     }
 }
 
-//render_init doesnt have to be separate kernel, dona that way for clarity 
-//better performance to do it in the render kernel
+
+/**
+ * Initializes the rendering process.
+ *
+ * This kernel function is responsible for initializing the rendering process by setting up the random number generator states.
+ *
+ * @param nx The width of the image.
+ * @param ny The height of the image.
+ * @param rand_state Pointer to the array of random number generator states.
+ */
 __global__ void render_init(int nx, int ny, curandState *rand_state) {
+    //render_init doesnt have to be separate kernel, dona that way for clarity 
+    //better performance to do it in the render kernel (will change later)
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= nx) || (j >= ny)) return;
@@ -36,12 +46,29 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
     curand_init(1984+pixel_index, 0, 0, &rand_state[pixel_index]);
 }
 
+/**
+ * @brief Renders the scene using path tracing algorithm.
+ *
+ * This CUDA kernel function is responsible for rendering the scene using the path tracing algorithm.
+ * It takes in the framebuffer `fb`, the maximum width and height of the image `max_x` and `max_y`,
+ * the number of samples per pixel `sample_per_pixel`, an array of camera pointers `cam`, an array of
+ * hitable pointers `world`, and the random state for each thread `rand_state`.
+ *
+ * @param fb The framebuffer to store the rendered image.
+ * @param max_x The maximum width of the image.
+ * @param max_y The maximum height of the image.
+ * @param sample_per_pixel The number of samples per pixel.
+ * @param cam An array of camera pointers.
+ * @param world An array of hitable pointers representing the scene.
+ * @param rand_state The random state for each thread.
+ */
 __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,hitable **world, curandState *rand_state) {
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y;
    if((i >= max_x) || (j >= max_y)) return;
    int pixel_index = j*max_x + i;
     curandState local_rand_state = rand_state[pixel_index];
+    //Antialiasing
     float3 col = make_float3(0, 0, 0);
     for (int s=0; s<sample_per_pixel; s++) {
         float u = float(i + curand_uniform(&local_rand_state)) / float(max_x);
@@ -50,9 +77,22 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
         col += (*cam)->ray_color(r, world, &local_rand_state);
     }
 
-   fb[pixel_index] = col/float(sample_per_pixel);
+   fb[pixel_index] = col/float(sample_per_pixel); //average color of samples
 }
 
+/**
+ * @brief CUDA kernel to create the world, list of objects, and camera.
+ *
+ * This CUDA kernel is responsible for creating the world, list of objects, and camera
+ * in the GPU memory. It takes in pointers to the device memory where the list of objects,
+ * world, and camera will be stored.
+ *
+ * @param d_list Pointer to the device memory where the list of objects will be stored.
+ * @param d_world Pointer to the device memory where the world will be stored.
+ * @param d_camera Pointer to the device memory where the camera will be stored.
+ * @param objects Array of objects loaded from .obj file
+ * @param number_of_meshes Number of objects in objects array 
+ */
 __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int number_of_meshes) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         // TODO: Set the materials accordingly to the object
@@ -95,8 +135,6 @@ int main()
 {
     int nx = 1600;
     int ny = 900;
-    // int nx = 1200;
-    // int ny = 600;
     
     int tx = 8; //thread amount should be a multiple of 32
     int ty = 8;

@@ -1521,4 +1521,11 @@ inline __device__ __host__ bool near_zero(float3 vec) {
     return (fabs(vec.x) < s) && (fabs(vec.y) < s) && (fabs(vec.z) < s);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// angles
+////////////////////////////////////////////////////////////////////////////////
+inline __device__ float degrees_to_radians(float degrees) {
+    return degrees * M_PI / 180.0f;
+}
+
 #endif
