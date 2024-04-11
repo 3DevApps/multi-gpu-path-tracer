@@ -53,23 +53,25 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
    fb[pixel_index] = col/float(sample_per_pixel);
 }
 
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int num_objects, int num_meshes) {
+__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int number_of_meshes) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         // TODO: Set the materials accordingly to the object
         // For example create a property on object3d and an enum for the material type
         // We can introduce a custom texture loader to load materials for the objects (bounded to our defined materials)
-        material *mat = new metal(make_float3(0.8, 0.6, 0.2),0.0);
+        material *mat = new lambertian(make_float3(0.5, 0.5, 0.5));
+        // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
+        // material *mat = new dielectric(1.5);
+        
+        int face_counter = 0;
 
-        int g_i = 0;
-
-        for (int i = 0; i < num_objects; i++) {
+        for (int i = 0; i < number_of_meshes; i++) {
             for (int j = 0; j < objects[i]->num_triangles; j++) {
-                d_list[g_i] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat);
-                g_i++;
+                d_list[face_counter] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat);
+                face_counter++;
             }
         }
                        
-        *d_world  = new hitable_list(d_list, num_meshes);
+        *d_world  = new hitable_list(d_list, face_counter);
         *d_camera = new camera();
     }
 }
@@ -115,19 +117,19 @@ int main()
     //create_world
 
     // Load object
-    const char *file_path = "models/cube.obj";
+    const char *file_path = "models/cubes2.obj";
     obj_loader loader(file_path);
 
-    int mesh_no = loader.get_number_of_meshes();
-    int *faces_per_mesh = new int[mesh_no];
+    int number_of_meshes = loader.get_number_of_meshes();
+    int *faces_per_mesh = new int[number_of_meshes];
     loader.get_number_of_faces(faces_per_mesh);
 
     object3d **objects;
-    checkCudaErrors(cudaMallocManaged((void **)&objects, mesh_no * sizeof(object3d)));
+    checkCudaErrors(cudaMallocManaged((void **)&objects, number_of_meshes * sizeof(object3d)));
 
-    int meshes_total = 0;
+    int faces_total = 0;
 
-    for (int i = 0; i < mesh_no; i++) {
+    for (int i = 0; i < number_of_meshes; i++) {
         object3d *object;
         checkCudaErrors(cudaMallocManaged((void **)&object, sizeof(object3d)));
 
@@ -137,23 +139,23 @@ int main()
 
         objects[i] = object;
 
-        meshes_total += faces_per_mesh[i];
+        faces_total += faces_per_mesh[i];
     }
 
     loader.load(objects);
 
     hitable **d_list;
-    checkCudaErrors(cudaMalloc((void **)&d_list, meshes_total * sizeof(hitable *)));
+    checkCudaErrors(cudaMalloc((void **)&d_list, faces_total * sizeof(hitable *)));
     hitable **d_world;
     checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
-    create_world<<<1,1>>>(d_list,d_world,d_camera, objects, mesh_no, meshes_total);
+    create_world<<<1,1>>>(d_list,d_world,d_camera, objects, number_of_meshes);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    free_objects<<<1,1>>>(objects, mesh_no);
+    free_objects<<<1,1>>>(objects, number_of_meshes);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -168,7 +170,7 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    free_world<<<1, 1>>>(d_list, d_world,d_camera, meshes_total);
+    free_world<<<1, 1>>>(d_list, d_world,d_camera, faces_total);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
