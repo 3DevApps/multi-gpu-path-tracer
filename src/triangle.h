@@ -9,10 +9,11 @@
 class triangle: public hitable
 {
 public:
-    triangle() {};
-    triangle(float3 v0, float3 v1, float3 v2) : v0(v0), v1(v1), v2(v2) {};
     __device__ triangle(float3 v0, float3 v1, float3 v2, material *mat_ptr) : v0(v0), v1(v1), v2(v2), mat_ptr(mat_ptr) {};
     __device__ virtual bool hit(const ray& r, float t_min, float t_max, hit_record& rec) const;
+    __device__ ~triangle() {
+        delete mat_ptr;
+    };
 
     float3 v0, v1, v2;
     material *mat_ptr;

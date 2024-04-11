@@ -23,7 +23,6 @@ class object3d: public hitable
 };
 
 __device__ object3d::object3d(triangle *triangles, int size, material *mat_ptr){
-    // Set material to each triangle
     for (int i = 0; i < size; i++)
     {
         triangles[i].mat_ptr = mat_ptr;
@@ -37,8 +36,6 @@ __device__ object3d::object3d(triangle *triangles, int size, material *mat_ptr){
 
 __device__ bool object3d::hit(const ray& r, float t_min, float t_max, hit_record& rec) const
 {
-    printf("num_triangles: %d\n", num_triangles);
-    printf("first triangle %f %f %f\n", triangles[0].v0.x, triangles[0].v0.y, triangles[0].v0.z);
     hit_record temp_rec;
     bool hit_anything = false;
     float closest_so_far = t_max;

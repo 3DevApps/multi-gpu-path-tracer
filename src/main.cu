@@ -55,15 +55,15 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
 
 __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int num_objects, int num_meshes) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        // TODO: move material to object3d
+        // TODO: Set the materials accordingly to the object
+        // For example create a property on object3d and an enum for the material type
+        // We can introduce a custom texture loader to load materials for the objects (bounded to our defined materials)
         material *mat = new metal(make_float3(0.8, 0.6, 0.2),0.0);
 
         int g_i = 0;
 
-        // TODO: try to implement simple for loop in object3d to avoid addding triangles to d_list
         for (int i = 0; i < num_objects; i++) {
             for (int j = 0; j < objects[i]->num_triangles; j++) {
-                // TODO: Use already allocated memory
                 d_list[g_i] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat);
                 g_i++;
             }
@@ -74,11 +74,13 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int num_objects, int num_meshes) {
+__global__ void free_objects(object3d **objects, int num_objects) {
     for (int i = 0; i < num_objects; i++) {
         delete objects[i];
     }
+}
 
+__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera, int num_meshes) {
     for (int i=0; i < num_meshes; i++) {
         delete d_list[i];
     }
@@ -148,7 +150,10 @@ int main()
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
     create_world<<<1,1>>>(d_list,d_world,d_camera, objects, mesh_no, meshes_total);
+    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaDeviceSynchronize());
 
+    free_objects<<<1,1>>>(objects, mesh_no);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -163,7 +168,7 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    free_world<<<1, 1>>>(d_list, d_world,d_camera, objects, mesh_no, meshes_total);
+    free_world<<<1, 1>>>(d_list, d_world,d_camera, meshes_total);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 

@@ -82,7 +82,9 @@ void obj_loader::load(object3d **objects)
                 aiVector3D v2 = mesh->mVertices[face.mIndices[1]];
                 aiVector3D v3 = mesh->mVertices[face.mIndices[2]];
 
-                objects[i]->triangles[j] = triangle(make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), make_float3(v3.x, v3.y, v3.z));
+                objects[i]->triangles[j].v0 = make_float3(v1.x, v1.y, v1.z);
+                objects[i]->triangles[j].v1 = make_float3(v2.x, v2.y, v2.z);
+                objects[i]->triangles[j].v2 = make_float3(v3.x, v3.y, v3.z);
             }
 
             objects[i]->num_triangles = mesh->mNumFaces;            
