@@ -13,16 +13,18 @@
 class obj_loader
 {
 public:
-    obj_loader() {};
-    int get_number_of_meshes(const char* path);
-    void get_number_of_faces(const char* path, int *num_faces);
-    void load(const char* path, object3d **objects);
+    obj_loader(const char* path) : file_path(path) {};
+    int get_number_of_meshes();
+    void get_number_of_faces(int *num_faces);
+    void load(object3d **objects);
+
+    const char* file_path;
 };
 
-int obj_loader::get_number_of_meshes(const char* path)
+int obj_loader::get_number_of_meshes()
 {
     Assimp::Importer importer;
-    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
+    const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
@@ -33,10 +35,10 @@ int obj_loader::get_number_of_meshes(const char* path)
 }
 
 // Get number of meshes
-void obj_loader::get_number_of_faces(const char* path, int *num_faces){
+void obj_loader::get_number_of_faces(int *num_faces){
     Assimp::Importer importer;
 
-    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
+    const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
@@ -52,11 +54,11 @@ void obj_loader::get_number_of_faces(const char* path, int *num_faces){
     }
 }
 
-void obj_loader::load(const char* path, object3d **objects)
+void obj_loader::load(object3d **objects)
 {
     Assimp::Importer importer;
 
-    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
+    const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
 
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {

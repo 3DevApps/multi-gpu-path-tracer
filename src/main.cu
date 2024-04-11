@@ -14,8 +14,6 @@
 #include "object3d.h"
 #include "triangle.h"
 
-
-
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line) {
     if (result) {
@@ -57,13 +55,15 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
 
 __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int num_objects, int num_meshes) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-
+        // TODO: move material to object3d
         material *mat = new metal(make_float3(0.8, 0.6, 0.2),0.0);
 
         int g_i = 0;
 
+        // TODO: try to implement simple for loop in object3d to avoid addding triangles to d_list
         for (int i = 0; i < num_objects; i++) {
             for (int j = 0; j < objects[i]->num_triangles; j++) {
+                // TODO: Use already allocated memory
                 d_list[g_i] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat);
                 g_i++;
             }
@@ -75,17 +75,16 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
 }
 
 __global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int num_objects, int num_meshes) {
-    for(int i=0; i < num_meshes; i++) {
-        delete d_list[i];
-    }
-
     for (int i = 0; i < num_objects; i++) {
         delete objects[i];
     }
 
+    for (int i=0; i < num_meshes; i++) {
+        delete d_list[i];
+    }
+
     delete *d_world;
-    delete *d_camera;
-    
+    delete *d_camera;    
 }
 
 int main()
@@ -114,13 +113,12 @@ int main()
     //create_world
 
     // Load object
-    const char *obj = "models/cubes.obj";
+    const char *file_path = "models/cubes.obj";
+    obj_loader loader(file_path);
 
-    obj_loader loader;
-    int mesh_no = loader.get_number_of_meshes(obj);
-
+    int mesh_no = loader.get_number_of_meshes();
     int *faces_per_mesh = new int[mesh_no];
-    loader.get_number_of_faces(obj, faces_per_mesh);
+    loader.get_number_of_faces(faces_per_mesh);
 
     object3d **objects;
     checkCudaErrors(cudaMallocManaged((void **)&objects, mesh_no * sizeof(object3d)));
@@ -140,9 +138,7 @@ int main()
         meshes_total += faces_per_mesh[i];
     }
 
-
-    loader.load(obj, objects);
-
+    loader.load(objects);
 
     hitable **d_list;
     checkCudaErrors(cudaMalloc((void **)&d_list, meshes_total * sizeof(hitable *)));
@@ -156,22 +152,22 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    //render
     render_init<<<blocks, threads>>>(nx, ny, d_rand_state);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
+
     render<<<blocks, threads>>>(fb, nx, ny,
         100, d_camera,
         d_world,
         d_rand_state);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
-    //free_world
+
     free_world<<<1, 1>>>(d_list, d_world,d_camera, objects, mesh_no, meshes_total);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    //output
+    // Save result to a PPM image
     std::ofstream myfile;
     myfile.open("out.ppm");
     myfile << "P3\n" << nx << " " << ny << "\n255\n";
