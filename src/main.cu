@@ -155,7 +155,7 @@ int main()
     //create_world
 
     // Load object
-    const char *file_path = "models/cubes2.obj";
+    const char *file_path = "models/cube.obj";
     obj_loader loader(file_path);
 
     int number_of_meshes = loader.get_number_of_meshes();

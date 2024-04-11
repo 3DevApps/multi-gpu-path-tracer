@@ -19,8 +19,8 @@ public:
     float focal_length; //distance between the camera and the viewport
     float vfov = 30.0; //vertical field of view
 
-    float3 lookfrom = make_float3(-2.0, 2.0, 1.0);
-    float3 lookat = make_float3(0.0, 0.0, -1.0);
+    float3 lookfrom = make_float3(-4.0, 2.0, 8.0);
+    float3 lookat = make_float3(-1.0, -2.0, -1.0);
     float3 vup = make_float3(0.0, 1.0, 0.0);
     
     float3 u, v, w; //orthonormal basis for the camera
