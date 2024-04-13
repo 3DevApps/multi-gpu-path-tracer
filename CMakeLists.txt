@@ -3,26 +3,25 @@ cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 set(PROJECT_NAME "cuda_project")
 project(${PROJECT_NAME} LANGUAGES CXX CUDA)
 
-execute_process(COMMAND bash scripts/install_dependencies.sh)
+list(APPEND CMAKE_MODULE_PATH "~/libs")
+list(APPEND CMAKE_PREFIX_PATH "~/libs")
 
-find_package(assimp REQUIRED)
-
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(OpenGL_GL_PREFERENCE GLVND)
+cmake_policy(SET CMP0074 NEW)
+
 
 find_package(CUDA REQUIRED)
-
-include_directories(${CUDA_INCLUDE_DIRS})
+find_package(glfw3 REQUIRED CONFIG)
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(assimp REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp" "src/*.cu")
 
-add_executable(${PROJECT_NAME} src/main.cu)
+add_executable(cuda_project src/main.cu)
 
-target_include_directories(${PROJECT_NAME}
-                           PUBLIC
-                           ${ASSIMP_INCLUDE_DIRS})
+set_property(TARGET cuda_project PROPERTY CUDA_ARCHITECTURES all-major)
 
-target_link_libraries(${PROJECT_NAME}
-                      ${ASSIMP_LIBRARIES})
-
-                      
+target_link_libraries(cuda_project PRIVATE glfw OpenGL::GL GLEW::GLEW assimp::assimp)
