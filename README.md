@@ -18,7 +18,7 @@ source scripts/ubuntu_setup.sh
 
 # Building dependencies 
 
-scripts/install_deps.sh downloads specified releases of librararies, builds them and installs them in ~/libs. 
+scripts/install_deps.sh downloads specified releases, builds them and installs them in ~/libs. 
 
 
 ```bash
