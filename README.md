@@ -1,5 +1,30 @@
 # Multi-GPU Path Tracer
 
+## Setup
+
+Run before building dependencies from source:
+
+# Ares
+
+```bash
+source scripts/ares_setup.sh
+```
+
+# Ubuntu
+
+```bash
+source scripts/ubuntu_setup.sh
+```
+
+# Building dependencies 
+
+scripts/install_deps.sh downloads specified releases of librararies, builds them and installs them in ~/libs. 
+
+
+```bash
+./scripts/install_deps.sh
+```
+
 ## Compiling and Running
 
 To compile and run the project, follow the steps below:
