@@ -1,3 +1,5 @@
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <iostream>
 #include <float.h>
@@ -13,6 +15,8 @@
 #include "obj_loader.h"
 #include "object3d.h"
 #include "triangle.h"
+#include "LocalRenderer/Window.h"
+#include "LocalRenderer/Renderer.h"
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line) {
@@ -213,6 +217,8 @@ int main()
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Save result to a PPM image
+    std::vector<uint8_t> frame(nx * ny * 3);
+    int current = 0;
     std::ofstream myfile;
     myfile.open("out.ppm");
     myfile << "P3\n" << nx << " " << ny << "\n255\n";
@@ -221,10 +227,22 @@ int main()
             size_t pixel_index = j*nx + i;
             int3 color = make_int3(255.99*fb[pixel_index].x, 255.99*fb[pixel_index].y, 255.99*fb[pixel_index].z);
             myfile << color.x << " " << color.y << " " << color.z << "\n";
+            frame[current++] = color.x;
+            frame[current++] = color.y;
+            frame[current++] = color.z;
         }
     }
     myfile.close();
     checkCudaErrors(cudaFree(fb));
+
+    Window window(nx, ny, "Hello");
+    Renderer renderer(window);
+
+    while (!window.shouldClose()) {
+        window.pollEvents();
+        renderer.renderFrame(frame);
+		window.swapBuffers();	
+	}
 
     return 0;
 }

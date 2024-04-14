@@ -18,8 +18,7 @@ find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(assimp REQUIRED)
 
-file(GLOB SOURCES "src/*.cpp" "src/*.cu")
-
-add_executable(cuda_project src/main.cu)
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
+add_executable(cuda_project ${SOURCES})
 
 target_link_libraries(cuda_project PRIVATE glfw OpenGL::GL GLEW::GLEW assimp::assimp)
