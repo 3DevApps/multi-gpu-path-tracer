@@ -229,7 +229,7 @@ int main()
     }
     myfile.close();
 
-    Window window(nx, ny, "Hello");
+    Window window(nx, ny, "MultiGPU-PathTracer");
     Renderer renderer(window);
 
     while (!window.shouldClose()) {

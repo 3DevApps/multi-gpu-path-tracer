@@ -9,8 +9,7 @@
 #include "cuda_runtime.h"
 #include <curand_kernel.h>
 
-class Renderer
-{
+class Renderer {
 public:
     Renderer(Window& window);
     ~Renderer() = default;

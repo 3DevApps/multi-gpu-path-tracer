@@ -8,8 +8,14 @@
 #include <functional>
 #include <string>
 
-class Window
-{
+enum class MouseButton {
+    Left,
+    Right,
+    Middle,
+};
+
+
+class Window {
 public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
@@ -25,11 +31,10 @@ public:
     void addScrollCallback(std::function<void(float)> callback) { scroll_callbacks_.push_back(callback); }
     std::uint32_t getWidth() const;
     std::uint32_t getHeight() const;
-
+    bool getMouseButton(MouseButton button) const;
 
 private:
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-
     std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> window_;
     std::vector<std::function<void(float)>> scroll_callbacks_;
     std::uint32_t width_ = 0u;
