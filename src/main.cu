@@ -66,7 +66,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,hitable **world, curandState *rand_state) {
+__global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,hitable **world, curandState *rand_state) {
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y;
    if((i >= max_x) || (j >= max_y)) return;
@@ -80,8 +80,10 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
         ray r = (*cam)->get_ray(u, v);
         col += (*cam)->ray_color(r, world, &local_rand_state);
     }
-
-   fb[pixel_index] = col/float(sample_per_pixel); //average color of samples
+    int3 color = make_int3(255.99 * col/float(sample_per_pixel)); //average color of samples
+    fb[3 * pixel_index] = color.x;
+    fb[3 * pixel_index + 1] = color.y;
+    fb[3 * pixel_index + 2] = color.z;
 }
 
 /**
@@ -145,15 +147,14 @@ int main()
     float aspect_ratio = float(nx) / float(ny);
 
     int num_pixels = nx*ny;
-    size_t fb_size = num_pixels*sizeof(float3);
 
     dim3 blocks(nx/tx+1,ny/ty+1);
     dim3 threads(tx,ty);
+    size_t fb_size = num_pixels*sizeof(uint8_t) * 3;
 
     curandState *d_rand_state;
     checkCudaErrors(cudaMalloc((void **)&d_rand_state, num_pixels*sizeof(curandState)));
-    // allocate FB
-    float3 *fb;
+    uint8_t *fb;
     checkCudaErrors(cudaMallocManaged((void **)&fb, fb_size));
 
     //create_world
@@ -217,32 +218,26 @@ int main()
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Save result to a PPM image
-    std::vector<uint8_t> frame(nx * ny * 3);
-    int current = 0;
     std::ofstream myfile;
     myfile.open("out.ppm");
     myfile << "P3\n" << nx << " " << ny << "\n255\n";
     for (int j = ny-1; j >= 0; j--) {
         for (int i = 0; i < nx; i++) {
-            size_t pixel_index = j*nx + i;
-            int3 color = make_int3(255.99*fb[pixel_index].x, 255.99*fb[pixel_index].y, 255.99*fb[pixel_index].z);
-            myfile << color.x << " " << color.y << " " << color.z << "\n";
-            frame[current++] = color.x;
-            frame[current++] = color.y;
-            frame[current++] = color.z;
+            size_t pixel_index = 3 * (j*nx + i);
+            myfile << fb[pixel_index] << " " << fb[pixel_index + 1] << " " << fb[pixel_index + 2] << "\n";
         }
     }
     myfile.close();
-    checkCudaErrors(cudaFree(fb));
 
     Window window(nx, ny, "Hello");
     Renderer renderer(window);
 
     while (!window.shouldClose()) {
         window.pollEvents();
-        renderer.renderFrame(frame);
+        renderer.renderFrame(fb);
 		window.swapBuffers();	
 	}
 
+    checkCudaErrors(cudaFree(fb));
     return 0;
 }

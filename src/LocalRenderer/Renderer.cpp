@@ -11,9 +11,9 @@ Renderer::Renderer(Window& window)
     CheckedGLCall(glGenFramebuffers(1, &fboId_));
 }
 
-void Renderer::renderFrame(const std::vector<uint8_t> &frame) {
+void Renderer::renderFrame(const uint8_t *frame) {
     CheckedGLCall(glBindTexture(GL_TEXTURE_2D, texId_));
-    CheckedGLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, frame.data()));
+    CheckedGLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, frame));
 
     CheckedGLCall(glBindFramebuffer(GL_READ_FRAMEBUFFER, fboId_));
     CheckedGLCall(glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId_, 0));
