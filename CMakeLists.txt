@@ -22,6 +22,4 @@ file(GLOB SOURCES "src/*.cpp" "src/*.cu")
 
 add_executable(cuda_project src/main.cu)
 
-set_property(TARGET cuda_project PROPERTY CUDA_ARCHITECTURES all-major)
-
 target_link_libraries(cuda_project PRIVATE glfw OpenGL::GL GLEW::GLEW assimp::assimp)
