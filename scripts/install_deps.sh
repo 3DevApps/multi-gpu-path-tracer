@@ -5,13 +5,20 @@ GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2
 ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
 
 
+#!/bin/bash
+
+GLFW_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
+GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz"
+ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
+
 LIB_PREFIX=~/libs
 ARCHIVE="sources"
+TMP_DIR=~/.tmp_deps
 
 clear () {
-	rm -rf ~/.tmp_deps
-	mkdir ~/.tmp_deps
-	cd ~/.tmp_deps
+	rm -rf $TMP_DIR
+	mkdir $TMP_DIR
+	cd $TMP_DIR
 }
 
 cmake_install () {
@@ -26,20 +33,23 @@ download_lib () {
 	rm -rf "$ARCHIVE"	
 }
 
-clear
-download_lib "$GLFW_URL"
-cd *
-cmake_install
+urls=("$GLFW_URL" "$GLEW_URL" "$ASSIMP_URL")
 
-clear
-download_lib "$GLEW_URL"
-cd */build/cmake
-cmake_install
+for url in "${urls[@]}"; do
+	clear
+	download_lib "$url"
 
-clear
-download_lib "$ASSIMP_URL"
-cd *
-cmake_install
+	# For GLEW we need to call cmake_install from a different directory
+	if [[ $url == "$GLEW_URL" ]]; then
+		cd */build/cmake
+	else
+		cd *
+	fi
+
+	cmake_install
+	cd -
+	
+done
 
 clear
 
