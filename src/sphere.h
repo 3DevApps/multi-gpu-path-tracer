@@ -17,7 +17,6 @@ class sphere: public hitable
         float3 center;
         float radius;
         material *mat_ptr;
-        aabb bbox;
 };
 __device__ bool sphere::hit(const ray& r,interval ray_t, hit_record& rec) const
 {

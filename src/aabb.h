@@ -59,4 +59,10 @@ public:
 
         return true;
     }
+    __device__ float3 center() const {
+        return make_float3((x.min + x.max) / 2, (y.min + y.max) / 2, (z.min + z.max) / 2);
+    }
+    __device__ float3 size() const {
+        return make_float3(x.max - x.min, y.max - y.min, z.max - z.min);
+    }
 };

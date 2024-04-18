@@ -10,7 +10,11 @@
 #include "hitable.h"
 #include "camera.h"
 #include "material.h"
-#include "thrust/device_vector.h"
+#include "bvh.h"
+
+
+
+
 
 
 
@@ -19,6 +23,8 @@ void check_cuda(cudaError_t result, char const *const func, const char *const fi
     if (result) {
         std::cerr << "CUDA ERROR = " << static_cast<unsigned int>(result) << " at " <<
         file << ":" << line << " '" << func << "' \n";
+        const char* error_string = cudaGetErrorString(result); 
+        std::cerr << error_string << " " << std::endl;
         // Make sure we call CUDA Device Reset before exiting
         cudaDeviceReset();
         exit(99);
@@ -62,7 +68,8 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,hitable **world, curandState *rand_state) {
+__global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,bvh **world, curandState *rand_state) {
+    
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y;
    if((i >= max_x) || (j >= max_y)) return;
@@ -91,7 +98,7 @@ __global__ void render(float3 *fb, int max_x, int max_y,int sample_per_pixel, ca
  * @param d_world Pointer to the device memory where the world will be stored.
  * @param d_camera Pointer to the device memory where the camera will be stored.
  */
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera) {
+__global__ void create_world(hitable **d_list, bvh **d_world,camera **d_camera) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         d_list[0] = new sphere(make_float3(0,0,-1), 0.5,
                                new lambertian(make_float3(0.7, 0.7, 0.5)));
@@ -103,19 +110,18 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
                                new dielectric(1.5f));
         d_list[4] = new sphere(make_float3(-1,0,-1), -0.45,
                                  new dielectric(1.5));                    
-        *d_world  = new hitable_list(d_list,5);
+        *d_world  = new bvh(d_list,5);
         *d_camera = new camera();
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera) {
+__global__ void free_world(hitable **d_list, bvh **d_world,camera **d_camera) {
     for(int i=0; i < 5; i++) {
         delete ((sphere *)d_list[i])->mat_ptr;
         delete d_list[i];
     }
     delete *d_world;
     delete *d_camera;
-    
 }
 
 int main()
@@ -142,8 +148,8 @@ int main()
     //create_world
     hitable **d_list;
     checkCudaErrors(cudaMalloc((void **)&d_list, 5*sizeof(hitable *)));
-    hitable **d_world;
-    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
+    bvh **d_world;
+    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(bvh *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
     create_world<<<1,1>>>(d_list,d_world,d_camera);
@@ -151,17 +157,19 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
+    
     //render
     render_init<<<blocks, threads>>>(nx, ny, d_rand_state);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
+    // return;
     render<<<blocks, threads>>>(fb, nx, ny,
         100, d_camera,
         d_world,
         d_rand_state);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
-    //free_world
+    // free_world
     free_world<<<1, 1>>>(d_list, d_world,d_camera);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
