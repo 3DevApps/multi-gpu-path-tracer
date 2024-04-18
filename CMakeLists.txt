@@ -1,12 +1,20 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(cuda_project LANGUAGES CXX CUDA)
 
+find_package(CUDA QUIET REQUIRED)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CUDA_SEPARABLE_COMPILATION ON)
+set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 
-find_package(CUDA REQUIRED)
+set(
+        CUDA_NVCC_FLAGS 
+        ${CUDA_NVCC_FLAGS}; 
+                -gencode arch=compute_75,code=sm_75 -rdc=true
+)
 
-include_directories(${CUDA_INCLUDE_DIRS})
-
-file(GLOB SOURCES "src/*.cpp" "src/*.cu")
-add_executable(cuda_project src/main.cu)
+cuda_add_executable(
+        cuda_project 
+        src/main.cu
+)
+set_target_properties(cuda_project PROPERTIES CUDA_ARCHITECTURES "75")
