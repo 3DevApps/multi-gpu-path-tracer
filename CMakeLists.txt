@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(cuda_project LANGUAGES CXX CUDA)
 
-find_package(CUDA QUIET REQUIRED)
+find_package(CUDA REQUIRED)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CUDA_SEPARABLE_COMPILATION ON)
