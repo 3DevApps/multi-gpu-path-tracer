@@ -235,7 +235,8 @@ int main()
     while (!window.shouldClose()) {
         window.pollEvents();
         renderer.renderFrame(fb);
-		window.swapBuffers();	
+	window.swapBuffers();	
+
 	}
 
     checkCudaErrors(cudaFree(fb));
