@@ -8,7 +8,6 @@
 #include "interval.h"
 //axis aligned bounding box
 
-//WORK IN PROGRESS
 class internal_node : public hitable{
     public:
         __device__ internal_node(){
