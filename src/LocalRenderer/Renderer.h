@@ -6,8 +6,6 @@
 #include "Window.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include "cuda_runtime.h"
-#include <curand_kernel.h>
 
 class Renderer {
 public:
