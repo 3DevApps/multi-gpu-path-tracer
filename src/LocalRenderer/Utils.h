@@ -13,7 +13,7 @@ void printOpenGLErrors(char const * const function, char const * const file, int
 	bool succeeded = true;
 	GLenum error = glGetError();
 	if (error != GL_NO_ERROR) {
-		char const *errorString = (char const *) gluErrorString(error);
+	char const *errorString = (char const *) gluErrorString(error);
             throw std::runtime_error(
                 "OpenGL Error in " + std::string(file) + 
                 " at line" + std::to_string(line) + 
