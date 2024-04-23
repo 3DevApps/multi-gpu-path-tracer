@@ -7,21 +7,19 @@
 #include <unordered_map>
 #include <vector>
 #include "triangle.h"
-#include "object3d.h"
 #include "material.h"
 
 class obj_loader
 {
 public:
     obj_loader(const char* path) : file_path(path) {};
-    int get_number_of_meshes();
-    void get_number_of_faces(int *num_faces);
-    void load(object3d **objects);
+    int get_total_number_of_faces();
+    void get_faces(triangle *triangles);
 
     const char* file_path;
 };
 
-int obj_loader::get_number_of_meshes()
+int obj_loader::get_total_number_of_faces()
 {
     Assimp::Importer importer;
     const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
@@ -31,31 +29,20 @@ int obj_loader::get_number_of_meshes()
         throw std::runtime_error(importer.GetErrorString());
     }
 
-    return scene->mNumMeshes;
-}
-
-// Get number of meshes
-void obj_loader::get_number_of_faces(int *num_faces){
-    Assimp::Importer importer;
-
-    const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
-
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-    {
-        throw std::runtime_error(importer.GetErrorString());
-    }
+    int total_faces = 0;
 
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
         {
             const aiMesh* mesh = scene->mMeshes[i];
-            num_faces[i] = mesh->mNumFaces;
+            total_faces += mesh->mNumFaces;
         }
     }
+
+    return total_faces;
 }
 
-void obj_loader::load(object3d **objects)
-{
+void obj_loader::get_faces(triangle *triangles){
     Assimp::Importer importer;
 
     const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
@@ -64,6 +51,8 @@ void obj_loader::load(object3d **objects)
     {
         throw std::runtime_error(importer.GetErrorString());
     }
+
+    int index = 0;
 
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
@@ -82,12 +71,12 @@ void obj_loader::load(object3d **objects)
                 aiVector3D v2 = mesh->mVertices[face.mIndices[1]];
                 aiVector3D v3 = mesh->mVertices[face.mIndices[2]];
 
-                objects[i]->triangles[j].v0 = make_float3(v1.x, v1.y, v1.z);
-                objects[i]->triangles[j].v1 = make_float3(v2.x, v2.y, v2.z);
-                objects[i]->triangles[j].v2 = make_float3(v3.x, v3.y, v3.z);
+                triangles[index].v0 = make_float3(v1.x, v1.y, v1.z);
+                triangles[index].v1 = make_float3(v2.x, v2.y, v2.z);
+                triangles[index].v2 = make_float3(v3.x, v3.y, v3.z);
+                index++;
             }
-
-            objects[i]->num_triangles = mesh->mNumFaces;            
         }
     }
+
 }
