@@ -30,7 +30,9 @@ Window::Window(std::uint32_t width, std::uint32_t height, const std::string& tit
 
     GLenum glew_status = glewInit();
 
-    if (glew_status != GLEW_OK) {
+    // GLEW_ERROR_NO_GLX_DISPLAY occurs when running the program on a WSL system.
+    // This error is not critical and can be ignored.
+    if (glew_status != GLEW_OK && glew_status != GLEW_ERROR_NO_GLX_DISPLAY) {
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
         throw std::runtime_error("Failed to init GLEW");
     }
