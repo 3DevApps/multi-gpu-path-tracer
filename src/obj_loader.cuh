@@ -8,6 +8,7 @@
 #include <vector>
 #include "triangle.h"
 #include "material.h"
+#include "cuda_utils.cuh"
 
 class obj_loader
 {
@@ -66,6 +67,8 @@ void obj_loader::get_faces(triangle *triangles){
                 {
                     throw std::runtime_error("Face is not a triangle");
                 }
+
+               checkCudaErrors(cudaMallocManaged((void **)&triangles[index], sizeof(material)));
 
                 aiVector3D v1 = mesh->mVertices[face.mIndices[0]];
                 aiVector3D v2 = mesh->mVertices[face.mIndices[1]];
