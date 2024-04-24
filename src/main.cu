@@ -105,14 +105,11 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
         // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
         // material *mat = new dielectric(1.5);
         
-        int face_counter = 0;
-
         for (int i = 0; i < number_of_meshes; i++) {
             d_list[i] = new triangle(triangles[i].v0, triangles[i].v1, triangles[i].v2, mat);
-            face_counter++;
         }
                        
-        *d_world  = new hitable_list(d_list, face_counter);
+        *d_world  = new hitable_list(d_list, number_of_meshes);
         *d_camera = new camera();
     }
 }
