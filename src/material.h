@@ -26,7 +26,12 @@ class material {
      * @return True if the ray is scattered, false otherwise.
      */
     __device__ virtual bool scatter(
-        const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState  *local_rand_state) const = 0;
+        const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState  *local_rand_state) const{
+        return false;
+        }
+    __device__ virtual float3 emitted() const {
+        return make_float3(0.0, 0.0, 0.0);
+    }
 };
 
 //matte material
@@ -133,4 +138,12 @@ class dielectric : public material {
         // }
 
         float ir; // Index of Refraction
+};
+class diffuse_light : public material {
+    public:
+        __device__ diffuse_light(float3 c) : color(c) {}
+        __device__ virtual float3 emitted() const {
+            return color;
+        }
+        float3 color;
 };
