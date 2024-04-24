@@ -104,15 +104,22 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
         // TODO: Set the materials accordingly to the object
         // For example create a property on object3d and an enum for the material type
         // We can introduce a custom texture loader to load materials for the objects (bounded to our defined materials)
-        material *mat = new lambertian(make_float3(0.5, 0.5, 0.5));
+        material *mat1 = new lambertian(make_float3(0.5, 0.5, 0.5));
+        material *mat2 = new lambertian(make_float3(0.4, 0.2, 0.1));
         // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
         // material *mat = new dielectric(1.5);
-        
+        material *mat;
         int face_counter = 0;
-
+        printf("Number of meshes: %d\n", number_of_meshes);
+        printf("Number of triangles: %d\n", objects[0]->num_triangles);
         for (int i = 0; i < number_of_meshes; i++) {
+            if (i == 0){
+                mat = mat1;
+            } else {
+                mat = mat2;
+            }
             for (int j = 0; j < objects[i]->num_triangles; j++) {
-                d_list[face_counter] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat);
+               d_list[face_counter] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat); 
                 face_counter++;
             }
         }
@@ -160,7 +167,7 @@ int main()
     //create_world
 
     // Load object
-    const char *file_path = "models/cube.obj";
+    const char *file_path = "models/cubes.obj";
     obj_loader loader(file_path);
 
     int number_of_meshes = loader.get_number_of_meshes();
@@ -188,9 +195,10 @@ int main()
     loader.load(objects);
 
     hitable **d_list;
-    checkCudaErrors(cudaMalloc((void **)&d_list, faces_total * sizeof(hitable *)));
-    hitable **d_world;
-    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
+
+    checkCudaErrors(cudaMalloc((void **)&d_list, faces_total*sizeof(hitable *)));
+    bvh **d_world;
+    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(bvh *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
