@@ -82,24 +82,14 @@ __global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, c
  * in the GPU memory. It takes in pointers to the device memory where the list of objects,
  * world, and camera will be stored.
  *
- * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_world Pointer to the device memory where the world will be stored.
  * @param d_camera Pointer to the device memory where the camera will be stored.
- * @param objects Array of objects loaded from .obj file
- * @param number_of_meshes Number of objects in objects array 
+ * @param d_list Pointer to the device memory where the list of objects will be stored.
+ * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, triangle *triangles, int number_of_meshes) {
+__global__ void create_world(hitable **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        // TODO: Set the materials accordingly to the object
-        material *mat = new lambertian(make_float3(0.5, 0.5, 0.5));
-        // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
-        // material *mat = new dielectric(1.5);
-        
-        for (int i = 0; i < number_of_meshes; i++) {
-            d_list[i] = new triangle(triangles[i].v0, triangles[i].v1, triangles[i].v2, mat);
-        }
-                       
-        *d_world  = new hitable_list(d_list, number_of_meshes);
+        *d_world  = new hitable_list(d_list, d_list_size);
         *d_camera = new camera();
     }
 }
@@ -140,23 +130,20 @@ int main()
     obj_loader loader(file_path);
 
     int number_of_faces = loader.get_total_number_of_faces();
-    triangle *faces;
-    checkCudaErrors(cudaMallocManaged((void **)&faces, number_of_faces * sizeof(triangle)));
-    loader.get_faces(faces);
 
     hitable **d_list;
     checkCudaErrors(cudaMalloc((void **)&d_list, number_of_faces * sizeof(hitable *)));
+
+    loader.load_faces(d_list);
 
     hitable **d_world;
     checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
-    create_world<<<1,1>>>(d_list,d_world, d_camera, faces, number_of_faces);
+    create_world<<<1,1>>>(d_world, d_camera, d_list, number_of_faces);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
-
-    checkCudaErrors(cudaFree(faces));
 
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());

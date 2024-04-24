@@ -9,13 +9,14 @@
 #include "triangle.h"
 #include "material.h"
 #include "cuda_utils.cuh"
+#include "hitable.h"
 
 class obj_loader
 {
 public:
     obj_loader(const char* path) : file_path(path) {};
     int get_total_number_of_faces();
-    void get_faces(triangle *triangles);
+    void load_faces(hitable **d_list);
 
     const char* file_path;
 };
@@ -43,7 +44,18 @@ int obj_loader::get_total_number_of_faces()
     return total_faces;
 }
 
-void obj_loader::get_faces(triangle *triangles){
+__global__ void assign_triangle(hitable **d_list, int index, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        // TODO: Set the materials accordingly to the object
+        material *mat = new lambertian(make_float3(0.5, 0.5, 0.5));
+        // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
+        // material *mat = new dielectric(1.5);
+                       
+        d_list[index] = new triangle(make_float3(v0.x, v0.y, v0.z), make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), mat);
+    }
+}
+
+void obj_loader::load_faces(hitable **d_list){
     Assimp::Importer importer;
 
     const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
@@ -68,18 +80,16 @@ void obj_loader::get_faces(triangle *triangles){
                     throw std::runtime_error("Face is not a triangle");
                 }
 
-               checkCudaErrors(cudaMallocManaged((void **)&triangles[index], sizeof(material)));
+                aiVector3D v0 = mesh->mVertices[face.mIndices[0]];
+                aiVector3D v1 = mesh->mVertices[face.mIndices[1]];
+                aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
 
-                aiVector3D v1 = mesh->mVertices[face.mIndices[0]];
-                aiVector3D v2 = mesh->mVertices[face.mIndices[1]];
-                aiVector3D v3 = mesh->mVertices[face.mIndices[2]];
-
-                triangles[index].v0 = make_float3(v1.x, v1.y, v1.z);
-                triangles[index].v1 = make_float3(v2.x, v2.y, v2.z);
-                triangles[index].v2 = make_float3(v3.x, v3.y, v3.z);
-                index++;
+                assign_triangle<<<1, 1>>>(d_list, index, v0, v1, v2);
+                index++
             }
         }
     }
 
+    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaDeviceSynchronize());
 }

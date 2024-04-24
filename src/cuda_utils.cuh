@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdio.h>
 #include <iostream>
 #include <curand_kernel.h>
 
