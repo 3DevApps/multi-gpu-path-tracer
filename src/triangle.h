@@ -5,8 +5,6 @@
 #include "assimp/scene.h"
 #include "helper_math.h"
 #include "hitable.h"
-#include "interval.h"
-#include "aabb.h"
 
 class triangle: public hitable
 {
@@ -18,6 +16,7 @@ public:
         bbox = aabb(x_interval, y_interval, z_interval);
     };
     __device__ virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const;
+
     __device__ ~triangle() {
         delete mat_ptr;
     };
@@ -25,7 +24,8 @@ public:
     float3 v0, v1, v2;
     material *mat_ptr;
 };
-__device__ bool triangle::hit(const ray& r, interval ray_t, hit_record& rec) const
+
+__device__ bool triangle::hit(const ray& r, float t_min, float t_max, hit_record& rec) const
 {
     // Moller-Trumbore intersection algorithm
     float3 e1 = v1 - v0;
@@ -51,7 +51,7 @@ __device__ bool triangle::hit(const ray& r, interval ray_t, hit_record& rec) con
 
     float t = dot(e2, qvec) * inv_det;
 
-    if (t < ray_t.max && t > ray_t.min)
+    if (t < t_max && t > t_min)
     {
         rec.t = t;
         rec.p = r.point_at_parameter(rec.t);
