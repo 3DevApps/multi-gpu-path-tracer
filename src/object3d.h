@@ -8,14 +8,17 @@ class object3d: public hitable
 {
     public:
         __device__ object3d() {};
-        __device__ object3d(triangle *triangles, int size) : triangles(triangles), num_triangles(size) {};
+        __device__ object3d(triangle *triangles, int size) : triangles(triangles), num_triangles(size) {
+            //needs aabb definition but writing it is a waste of time cus we dont even put this thing in BVH
+            //we dont even call hit on this class idk what is the point of all of this
+        };
         __device__ object3d(triangle *triangles, int size, material *mat_ptr);
         __device__ object3d(material *mat_ptr) : mat_ptr(mat_ptr) {};
         __device__ ~object3d() {
             delete triangles;
             delete mat_ptr;
         };
-        __device__ virtual bool hit(const ray& r, float t_min, float t_max, hit_record& rec) const;
+        __device__ virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const;
 
         material *mat_ptr;
         triangle *triangles;
@@ -34,18 +37,17 @@ __device__ object3d::object3d(triangle *triangles, int size, material *mat_ptr){
 }
 
 
-__device__ bool object3d::hit(const ray& r, float t_min, float t_max, hit_record& rec) const
+__device__ bool object3d::hit(const ray& r, interval ray_t, hit_record& rec) const
 {
     hit_record temp_rec;
     bool hit_anything = false;
-    float closest_so_far = t_max;
 
     for (int i = 0; i < num_triangles; i++)
     {
-        if (triangles[i].hit(r, t_min, closest_so_far, temp_rec))
+        if (triangles[i].hit(r, ray_t, temp_rec))
         {
             hit_anything = true;
-            closest_so_far = temp_rec.t;
+            ray_t.max = temp_rec.t;
             rec = temp_rec;
         }
     }

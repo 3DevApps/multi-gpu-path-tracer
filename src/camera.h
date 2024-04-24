@@ -3,10 +3,13 @@
 #include "hitable.h"
 #include "curand_kernel.h"
 #include "material.h"
+#include "interval.h"
+#include "bvh.h"
 class camera
 {
 public:
     //TODO: some of them should be private i just dont like the ideology of private variables so u can decide
+    const interval hit_interval = interval(0.001f, FLT_MAX);
 
     float3 origin; //camera position
     float3 lower_left_corner; //lower left corner of the viewport
@@ -60,12 +63,12 @@ public:
      * @param local_rand_state The pointer to the random number generator state for the current thread.
      * @return The color of the ray.
      */
-    __device__ float3 ray_color(const ray& r, hitable **world, curandState *local_rand_state) {
+    __device__ float3 ray_color(const ray& r, bvh **world, curandState *local_rand_state) {
         ray cur_ray = r;
         float3 cur_attenuation = make_float3(1.0, 1.0, 1.0);
         for(int i = 0; i < max_depth; i++) {
             hit_record rec;
-            if ((*world)->hit(cur_ray, 0.001f, FLT_MAX, rec)) {
+            if ((*world)->hit(cur_ray, hit_interval, rec)) {
                 ray scattered;
                 float3 attenuation; //means color
                 if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, scattered, local_rand_state)) {

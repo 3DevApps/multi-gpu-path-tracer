@@ -17,12 +17,21 @@
 #include "triangle.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
+#include "bvh.h"
+
+
+
+
+
+
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line) {
     if (result) {
         std::cerr << "CUDA ERROR = " << static_cast<unsigned int>(result) << " at " <<
         file << ":" << line << " '" << func << "' \n";
+        const char* error_string = cudaGetErrorString(result); 
+        std::cerr << error_string << " " << std::endl;
         // Make sure we call CUDA Device Reset before exiting
         cudaDeviceReset();
         exit(99);
@@ -66,7 +75,8 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,hitable **world, curandState *rand_state) {
+__global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,bvh **world, curandState *rand_state) {
+    
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y;
    if((i >= max_x) || (j >= max_y)) return;
@@ -99,7 +109,7 @@ __global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, c
  * @param objects Array of objects loaded from .obj file
  * @param number_of_meshes Number of objects in objects array 
  */
-__global__ void create_world(hitable **d_list, hitable **d_world,camera **d_camera, object3d **objects, int number_of_meshes) {
+__global__ void create_world(hitable **d_list, bvh **d_world,camera **d_camera, object3d **objects, int number_of_meshes) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         // TODO: Set the materials accordingly to the object
         // For example create a property on object3d and an enum for the material type
@@ -117,7 +127,7 @@ __global__ void create_world(hitable **d_list, hitable **d_world,camera **d_came
             }
         }
                        
-        *d_world  = new hitable_list(d_list, face_counter);
+        *d_world  = new bvh(d_list, face_counter);
         *d_camera = new camera();
     }
 }
@@ -128,7 +138,7 @@ __global__ void free_objects(object3d **objects, int num_objects) {
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera, int num_meshes) {
+__global__ void free_world(hitable **d_list, bvh **d_world,camera **d_camera, int num_meshes) {
     for (int i=0; i < num_meshes; i++) {
         delete d_list[i];
     }
@@ -188,9 +198,9 @@ int main()
     loader.load(objects);
 
     hitable **d_list;
-    checkCudaErrors(cudaMalloc((void **)&d_list, faces_total * sizeof(hitable *)));
-    hitable **d_world;
-    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
+    checkCudaErrors(cudaMalloc((void **)&d_list, 5*sizeof(hitable *)));
+    bvh **d_world;
+    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(bvh *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
