@@ -12,19 +12,6 @@ __device__ float schlick_approx(float cosine, float ref_idx) {
 
 class material {
   public:
-    /**
-     * @brief Calculates the scattered ray after a ray hits the material.
-     *
-     * This pure virtual function is responsible for determining the behavior of the material when a ray hits it.
-     * It calculates the scattered ray, the attenuation (color) of the material, and returns whether or not the ray is scattered.
-     *
-     * @param r_in The incident ray.
-     * @param rec The hit record containing information about the intersection point.
-     * @param attenuation The attenuation (color) of the material.
-     * @param scattered The scattered ray.
-     * @param local_rand_state The random state for the current thread.
-     * @return True if the ray is scattered, false otherwise.
-     */
     __device__ virtual bool scatter(
         const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState  *local_rand_state) const = 0;
 };
@@ -51,9 +38,8 @@ class lambertian : public material {
             return true;
         }
 
-        float3 albedo; // albedo is the fraction of the incident light that is reflected
+        float3 albedo;
 };
-
 //metal material
 class metal : public material {
     public:
