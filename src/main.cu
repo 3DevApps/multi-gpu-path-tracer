@@ -138,8 +138,8 @@ int main()
 
     loader.load_faces(d_list);
 
-    hitable **d_world;
-    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(hitable *)));
+    bvh **d_world;
+    checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(bvh *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
