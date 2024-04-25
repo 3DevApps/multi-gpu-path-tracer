@@ -57,7 +57,7 @@ int obj_loader::get_total_number_of_faces()
     return total_faces;
 }
 
-__global__ void assign_triangle(hitable **d_list,mAiMaterial *d_mat, material** materials, int material_index, int index, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
+__global__ void assign_triangle(hitable **d_list, int index, material** materials, int material_index, mAiMaterial *d_mat, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         if (materials[material_index] == nullptr) {
             if (d_mat->type == LAMBERTIAN) {
@@ -152,7 +152,7 @@ void obj_loader::load_faces(hitable **d_list) {
                 }
 
 
-                assign_triangle<<<1, 1>>>(d_list, d_mat, materials, mesh->mMaterialIndex, index, v0, v1, v2);
+                assign_triangle<<<1, 1>>>(d_list, index, materials, mesh->mMaterialIndex, d_mat, v0, v1, v2);
                 index++;
             }
         }
