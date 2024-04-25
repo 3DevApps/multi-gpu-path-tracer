@@ -13,30 +13,11 @@
 #include "camera.h"
 #include "material.h"
 #include "obj_loader.h"
-#include "object3d.h"
 #include "triangle.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
+#include "cuda_utils.h"
 #include "bvh.h"
-
-
-
-
-
-
-
-#define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
-void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line) {
-    if (result) {
-        std::cerr << "CUDA ERROR = " << static_cast<unsigned int>(result) << " at " <<
-        file << ":" << line << " '" << func << "' \n";
-        const char* error_string = cudaGetErrorString(result); 
-        std::cerr << error_string << " " << std::endl;
-        // Make sure we call CUDA Device Reset before exiting
-        cudaDeviceReset();
-        exit(99);
-    }
-}
 
 
 /**
@@ -103,43 +84,20 @@ __global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, c
  * in the GPU memory. It takes in pointers to the device memory where the list of objects,
  * world, and camera will be stored.
  *
- * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_world Pointer to the device memory where the world will be stored.
  * @param d_camera Pointer to the device memory where the camera will be stored.
- * @param objects Array of objects loaded from .obj file
- * @param number_of_meshes Number of objects in objects array 
+ * @param d_list Pointer to the device memory where the list of objects will be stored.
+ * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable **d_list, bvh **d_world,camera **d_camera, object3d **objects, int number_of_meshes) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        // TODO: Set the materials accordingly to the object
-        // For example create a property on object3d and an enum for the material type
-        // We can introduce a custom texture loader to load materials for the objects (bounded to our defined materials)
-        material *mat = new lambertian(make_float3(0.5, 0.5, 0.5));
-        // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
-        // material *mat = new dielectric(1.5);
-        
-        int face_counter = 0;
-
-        for (int i = 0; i < number_of_meshes; i++) {
-            for (int j = 0; j < objects[i]->num_triangles; j++) {
-                d_list[face_counter] = new triangle(objects[i]->triangles[j].v0, objects[i]->triangles[j].v1, objects[i]->triangles[j].v2, mat);
-                face_counter++;
-            }
-        }
-                       
-        *d_world  = new bvh(d_list, face_counter);
+__global__ void create_world(bvh **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                       
+        *d_world  = new bvh(d_list, d_list_size);
         *d_camera = new camera();
     }
 }
 
-__global__ void free_objects(object3d **objects, int num_objects) {
-    for (int i = 0; i < num_objects; i++) {
-        delete objects[i];
-    }
-}
-
-__global__ void free_world(hitable **d_list, bvh **d_world,camera **d_camera, int num_meshes) {
-    for (int i=0; i < num_meshes; i++) {
+__global__ void free_world(hitable **d_list, bvh **d_world, camera **d_camera, int d_list_size) {
+    for (int i=0; i < d_list_size; i++) {
         delete d_list[i];
     }
 
@@ -173,42 +131,22 @@ int main()
     const char *file_path = "models/cube.obj";
     obj_loader loader(file_path);
 
-    int number_of_meshes = loader.get_number_of_meshes();
-    int *faces_per_mesh = new int[number_of_meshes];
-    loader.get_number_of_faces(faces_per_mesh);
-
-    object3d **objects;
-    checkCudaErrors(cudaMallocManaged((void **)&objects, number_of_meshes * sizeof(object3d)));
-
-    int faces_total = 0;
-
-    for (int i = 0; i < number_of_meshes; i++) {
-        object3d *object;
-        checkCudaErrors(cudaMallocManaged((void **)&object, sizeof(object3d)));
-
-        triangle *triangles;
-        checkCudaErrors(cudaMallocManaged((void **)&triangles, faces_per_mesh[i] * sizeof(triangle)));
-        object->triangles = triangles;
-
-        objects[i] = object;
-
-        faces_total += faces_per_mesh[i];
-    }
-
-    loader.load(objects);
+    int number_of_faces = loader.get_total_number_of_faces();
 
     hitable **d_list;
-    checkCudaErrors(cudaMalloc((void **)&d_list, 5*sizeof(hitable *)));
+    checkCudaErrors(cudaMalloc((void **)&d_list, number_of_faces * sizeof(hitable *)));
+
+    loader.load_faces(d_list);
+
     bvh **d_world;
     checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(bvh *)));
     camera **d_camera;
     checkCudaErrors(cudaMalloc((void **)&d_camera, sizeof(camera *)));
 
-    create_world<<<1,1>>>(d_list,d_world,d_camera, objects, number_of_meshes);
+    create_world<<<1,1>>>(d_world, d_camera, d_list, number_of_faces);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    free_objects<<<1,1>>>(objects, number_of_meshes);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -223,7 +161,7 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    free_world<<<1, 1>>>(d_list, d_world,d_camera, faces_total);
+    free_world<<<1, 1>>>(d_list, d_world, d_camera, number_of_faces);
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
