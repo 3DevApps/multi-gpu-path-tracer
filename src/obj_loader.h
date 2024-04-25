@@ -11,6 +11,19 @@
 #include "cuda_utils.h"
 #include "hitable.h"
 
+enum material_type {
+    LAMBERTIAN,
+    METAL,
+    DIELECTRIC,
+    UNKNOWN
+};
+
+struct mAiMaterial {
+    material_type type = UNKNOWN;
+    float3 color_ambient;
+    float index_of_refraction;
+};
+
 class obj_loader
 {
 public:
@@ -44,38 +57,21 @@ int obj_loader::get_total_number_of_faces()
     return total_faces;
 }
 
-__global__ void assign_triangle(hitable **d_list, material** materials, aiMaterial *mesh_material, int material_index, int index, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
+__global__ void assign_triangle(hitable **d_list,mAiMaterial *d_mat, material** materials, int material_index, int index, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        if (materials[0] == nullptr) {
-            // Get mesh_material name
-            
-
-            // Get material name
-            aiString name;
-            mesh_material->Get(AI_MATKEY_NAME, name);
-
-            printf("Material name: %s\n", name.C_Str());
-
-
-            // // get COLOR_AMBIENT
-            // aiColor3D color;
-            // mesh_material->Get(AI_MATKEY_COLOR_AMBIENT, color);
-            // printf("Material ambient color: %f %f %f\n", color.r, color.g, color.b);
-
-
-            // printf("Material name: %s\n", name.C_Str());
-
-
-
-
-            materials[0] = new lambertian(make_float3(0.8, 0.3, 0.3));
+        if (materials[material_index] == nullptr) {
+            if (d_mat->type == LAMBERTIAN) {
+                materials[material_index] = new lambertian(d_mat->color_ambient);
+            }
+            else if (d_mat->type == METAL) {
+                materials[material_index] = new metal(d_mat->color_ambient, d_mat->index_of_refraction);
+            }
+            else if (d_mat->type == DIELECTRIC) {
+                materials[material_index] = new dielectric(d_mat->index_of_refraction);
+            }
         }
 
-
-        material *mat = materials[0];
-
-        // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
-        // material *mat = new dielectric(1.5);                       
+        material *mat = materials[material_index];
         d_list[index] = new triangle(make_float3(v0.x, v0.y, v0.z), make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), mat);
     }
 }
@@ -98,6 +94,8 @@ void obj_loader::load_faces(hitable **d_list) {
     material **materials;
     checkCudaErrors(cudaMalloc((void **)&materials, num_materials * sizeof(material*)));
 
+    mAiMaterial d_materials[num_materials];
+
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
         {
@@ -115,12 +113,46 @@ void obj_loader::load_faces(hitable **d_list) {
                 aiVector3D v1 = mesh->mVertices[face.mIndices[1]];
                 aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
 
-                aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];       
+                aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];      
+                mAiMaterial *d_mat;
+
+                if (d_materials[mesh->mMaterialIndex].type == UNKNOWN) {
+                    mAiMaterial m;
+                    aiString name;
+                    material->Get(AI_MATKEY_NAME, name);
+
+                    if (name == aiString("lambertian")) {
+                        aiColor3D color;
+                        material->Get(AI_MATKEY_COLOR_AMBIENT, color);
+
+                        m.type = LAMBERTIAN;
+                        m.color_ambient = make_float3(color.r, color.g, color.b);
+                    } 
+                    else if (name == aiString("metal")) {
+                        aiColor3D color;
+                        material->Get(AI_MATKEY_COLOR_AMBIENT, color);
+
+                        float fuzz_value;
+                        material->Get(AI_MATKEY_REFRACTI, fuzz_value);
+
+                        m.type = METAL;
+                        m.color_ambient = make_float3(color.r, color.g, color.b); 
+                        m.index_of_refraction = fuzz_value; // Fuzz value not supported by Assimp
+                    } 
+                    else if (name == aiString("dielectric")) {
+                        float index_of_refraction;
+                        material->Get(AI_MATKEY_REFRACTI, index_of_refraction);
+                    
+                        m.type = DIELECTRIC;
+                        m.index_of_refraction = index_of_refraction;
+                    }
+                    
+                    checkCudaErrors(cudaMalloc((void **)&d_mat, sizeof(mAiMaterial)));
+                    checkCudaErrors(cudaMemcpy(d_mat, &m, sizeof(mAiMaterial), cudaMemcpyHostToDevice));
+                }
 
 
-                // return;         
-
-                assign_triangle<<<1, 1>>>(d_list, materials, material, mesh->mMaterialIndex, index, v0, v1, v2);
+                assign_triangle<<<1, 1>>>(d_list, d_mat, materials, mesh->mMaterialIndex, index, v0, v1, v2);
                 index++;
             }
         }
