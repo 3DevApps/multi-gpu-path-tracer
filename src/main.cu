@@ -17,6 +17,7 @@
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
 #include "cuda_utils.h"
+#include "bvh.h"
 
 
 /**
@@ -55,7 +56,8 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,hitable **world, curandState *rand_state) {
+__global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,bvh **world, curandState *rand_state) {
+    
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y;
    if((i >= max_x) || (j >= max_y)) return;
@@ -87,15 +89,15 @@ __global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, c
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        *d_world  = new hitable_list(d_list, d_list_size);
+__global__ void create_world(bvh **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                       
+        *d_world  = new bvh(d_list, d_list_size);
         *d_camera = new camera();
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable **d_world,camera **d_camera, int num_meshes) {
-    for (int i=0; i < num_meshes; i++) {
+__global__ void free_world(hitable **d_list, bvh **d_world, camera **d_camera, int d_list_size) {
+    for (int i=0; i < d_list_size; i++) {
         delete d_list[i];
     }
 
