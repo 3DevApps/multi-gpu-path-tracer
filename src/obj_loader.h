@@ -11,17 +11,18 @@
 #include "cuda_utils.h"
 #include "hitable.h"
 
+// Materials supported by the obj loader
 enum material_type {
     LAMBERTIAN,
     METAL,
-    DIELECTRIC,
-    UNKNOWN
+    DIELECTRIC
 };
 
-struct mAiMaterial {
-    material_type type = UNKNOWN;
+struct m_ai_material {
+    material_type type ;
     float3 color_ambient;
     float index_of_refraction;
+    float shininess;
 };
 
 class obj_loader
@@ -57,14 +58,14 @@ int obj_loader::get_total_number_of_faces()
     return total_faces;
 }
 
-__global__ void assign_triangle(hitable **d_list, int index, material** materials, int material_index, mAiMaterial *d_mat, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
+__global__ void assign_triangle(hitable **d_list, int index, material** materials, int material_index, m_ai_material *d_mat, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         if (materials[material_index] == nullptr) {
             if (d_mat->type == LAMBERTIAN) {
                 materials[material_index] = new lambertian(d_mat->color_ambient);
             }
             else if (d_mat->type == METAL) {
-                materials[material_index] = new metal(d_mat->color_ambient, d_mat->index_of_refraction);
+                materials[material_index] = new metal(d_mat->color_ambient, d_mat->shininess);
             }
             else if (d_mat->type == DIELECTRIC) {
                 materials[material_index] = new dielectric(d_mat->index_of_refraction);
@@ -87,15 +88,12 @@ void obj_loader::load_faces(hitable **d_list) {
     }
 
     int index = 0;
-
-    // Array for storing materials
     int num_materials = scene->mNumMaterials;
 
     material **materials;
     checkCudaErrors(cudaMalloc((void **)&materials, num_materials * sizeof(material*)));
-
-    mAiMaterial d_materials[num_materials];
-
+    int is_material_allocated[num_materials] = {0};
+    
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
         {
@@ -113,11 +111,13 @@ void obj_loader::load_faces(hitable **d_list) {
                 aiVector3D v1 = mesh->mVertices[face.mIndices[1]];
                 aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
 
-                aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];      
-                mAiMaterial *d_mat;
+                // This struct is needed to pass material properties to the kernel
+                m_ai_material *d_mat; 
 
-                if (d_materials[mesh->mMaterialIndex].type == UNKNOWN) {
-                    mAiMaterial m;
+                if (is_material_allocated[mesh->mMaterialIndex] == 0) {
+                    aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];      
+
+                    m_ai_material m;
                     aiString name;
                     material->Get(AI_MATKEY_NAME, name);
 
@@ -132,27 +132,32 @@ void obj_loader::load_faces(hitable **d_list) {
                         aiColor3D color;
                         material->Get(AI_MATKEY_COLOR_AMBIENT, color);
 
-                        float fuzz_value;
-                        material->Get(AI_MATKEY_REFRACTI, fuzz_value);
+                        float shininess;
+                        material->Get(AI_MATKEY_SHININESS, shininess); // Represented as Ns in the mtl file
 
                         m.type = METAL;
                         m.color_ambient = make_float3(color.r, color.g, color.b); 
-                        m.index_of_refraction = fuzz_value; // Fuzz value not supported by Assimp
+                        m.shininess = shininess; 
                     } 
                     else if (name == aiString("dielectric")) {
                         float index_of_refraction;
-                        material->Get(AI_MATKEY_REFRACTI, index_of_refraction);
+                        material->Get(AI_MATKEY_REFRACTI, index_of_refraction); // Represented as Ni in the mtl file
                     
                         m.type = DIELECTRIC;
                         m.index_of_refraction = index_of_refraction;
                     }
                     
-                    checkCudaErrors(cudaMalloc((void **)&d_mat, sizeof(mAiMaterial)));
-                    checkCudaErrors(cudaMemcpy(d_mat, &m, sizeof(mAiMaterial), cudaMemcpyHostToDevice));
+                    checkCudaErrors(cudaMalloc((void **)&d_mat, sizeof(m_ai_material)));
+                    checkCudaErrors(cudaMemcpy(d_mat, &m, sizeof(m_ai_material), cudaMemcpyHostToDevice));
                 }
 
-
                 assign_triangle<<<1, 1>>>(d_list, index, materials, mesh->mMaterialIndex, d_mat, v0, v1, v2);
+
+                if (is_material_allocated[mesh->mMaterialIndex] == 0) {
+                    is_material_allocated[mesh->mMaterialIndex] = 1;
+                    checkCudaErrors(cudaFree(d_mat));
+                }
+
                 index++;
             }
         }
