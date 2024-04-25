@@ -44,18 +44,43 @@ int obj_loader::get_total_number_of_faces()
     return total_faces;
 }
 
-__global__ void assign_triangle(hitable **d_list, int index, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
+__global__ void assign_triangle(hitable **d_list, material** materials, aiMaterial *mesh_material, int material_index, int index, aiVector3D v0, aiVector3D v1, aiVector3D v2) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        // TODO: Set the materials accordingly to the object
-        material *mat = new lambertian(make_float3(0.5, 0.5, 0.5));
+        if (materials[0] == nullptr) {
+            // Get mesh_material name
+            
+
+            // Get material name
+            aiString name;
+            mesh_material->Get(AI_MATKEY_NAME, name);
+
+            printf("Material name: %s\n", name.C_Str());
+
+
+            // // get COLOR_AMBIENT
+            // aiColor3D color;
+            // mesh_material->Get(AI_MATKEY_COLOR_AMBIENT, color);
+            // printf("Material ambient color: %f %f %f\n", color.r, color.g, color.b);
+
+
+            // printf("Material name: %s\n", name.C_Str());
+
+
+
+
+            materials[0] = new lambertian(make_float3(0.8, 0.3, 0.3));
+        }
+
+
+        material *mat = materials[0];
+
         // material *mat = new metal(make_float3(0.8, 0.6, 0.2), 0.0);
-        // material *mat = new dielectric(1.5);
-                       
+        // material *mat = new dielectric(1.5);                       
         d_list[index] = new triangle(make_float3(v0.x, v0.y, v0.z), make_float3(v1.x, v1.y, v1.z), make_float3(v2.x, v2.y, v2.z), mat);
     }
 }
 
-void obj_loader::load_faces(hitable **d_list){
+void obj_loader::load_faces(hitable **d_list) {
     Assimp::Importer importer;
 
     const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
@@ -66,6 +91,12 @@ void obj_loader::load_faces(hitable **d_list){
     }
 
     int index = 0;
+
+    // Array for storing materials
+    int num_materials = scene->mNumMaterials;
+
+    material **materials;
+    checkCudaErrors(cudaMalloc((void **)&materials, num_materials * sizeof(material*)));
 
     if (scene->HasMeshes()) {
         for (unsigned int i = 0; i < scene->mNumMeshes; i++)
@@ -84,11 +115,18 @@ void obj_loader::load_faces(hitable **d_list){
                 aiVector3D v1 = mesh->mVertices[face.mIndices[1]];
                 aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
 
-                assign_triangle<<<1, 1>>>(d_list, index, v0, v1, v2);
+                aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];       
+
+
+                // return;         
+
+                assign_triangle<<<1, 1>>>(d_list, materials, material, mesh->mMaterialIndex, index, v0, v1, v2);
                 index++;
             }
         }
     }
+
+    checkCudaErrors(cudaFree(materials));
 
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
