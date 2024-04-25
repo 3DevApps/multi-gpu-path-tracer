@@ -8,7 +8,7 @@
 #include <vector>
 #include "triangle.h"
 #include "material.h"
-#include "cuda_utils.cuh"
+#include "cuda_utils.h"
 #include "hitable.h"
 
 class obj_loader
@@ -85,7 +85,7 @@ void obj_loader::load_faces(hitable **d_list){
                 aiVector3D v2 = mesh->mVertices[face.mIndices[2]];
 
                 assign_triangle<<<1, 1>>>(d_list, index, v0, v1, v2);
-                index++
+                index++;
             }
         }
     }

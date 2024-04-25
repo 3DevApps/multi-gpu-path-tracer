@@ -12,11 +12,11 @@
 #include "hitable.h"
 #include "camera.h"
 #include "material.h"
-#include "obj_loader.cuh"
+#include "obj_loader.h"
 #include "triangle.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
-#include "cuda_utils.cuh"
+#include "cuda_utils.h"
 
 
 /**
