@@ -18,6 +18,7 @@
 #include "LocalRenderer/Renderer.h"
 #include "cuda_utils.h"
 #include "bvh.h"
+#include "Profiling/GPUMonitor.h"
 
 /**
  * Initializes the rendering process.
@@ -159,10 +160,6 @@ int main()
     checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
-    free_world<<<1, 1>>>(d_list, d_world, d_camera, number_of_faces);
-    checkCudaErrors(cudaGetLastError());
-    checkCudaErrors(cudaDeviceSynchronize());
-
     // Save result to a PPM image
     std::ofstream myfile;
     myfile.open("out.ppm");
@@ -178,12 +175,29 @@ int main()
     Window window(nx, ny, "MultiGPU-PathTracer");
     Renderer renderer(window);
 
+    MonitorThread monitor_thread_obj;
+    std::thread monitor_thread(std::ref(monitor_thread_obj));
+
     while (!window.shouldClose()) {
         window.pollEvents();
-        renderer.renderFrame(fb);
-	window.swapBuffers();	
 
+        render<<<blocks, threads>>>(fb, nx, ny,
+            100, d_camera,
+            d_world,
+            d_rand_state);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+
+        renderer.renderFrame(fb);
+	    window.swapBuffers();	
 	}
+
+    free_world<<<1, 1>>>(d_list, d_world, d_camera, number_of_faces);
+    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaDeviceSynchronize());
+
+    monitor_thread_obj.safeTerminate();
+    monitor_thread.join();
 
     checkCudaErrors(cudaFree(fb));
     return 0;
