@@ -128,14 +128,14 @@ void obj_loader::load_faces(hitable **d_list) {
 
                     std::string name = ai_string_name.C_Str();
                     
-                    if (name.find("lambertian") != std::string::npos) {
+                    if (name.rfind("lambertian", 0) != std::string::npos) {
                         aiColor3D color;
                         material->Get(AI_MATKEY_COLOR_AMBIENT, color);
 
                         m.type = LAMBERTIAN;
                         m.color_ambient = make_float3(color.r, color.g, color.b);
                     } 
-                    else if (name.find("metal") != std::string::npos) {
+                    else if (name.rfind("metal", 0) != std::string::npos) {
                         aiColor3D color;
                         material->Get(AI_MATKEY_COLOR_AMBIENT, color);
 
@@ -146,14 +146,14 @@ void obj_loader::load_faces(hitable **d_list) {
                         m.color_ambient = make_float3(color.r, color.g, color.b); 
                         m.shininess = shininess; 
                     } 
-                    else if (name.find("dielectric") != std::string::npos) {
+                    else if (name.rfind("dielectric", 0) != std::string::npos) {
                         float index_of_refraction;
                         material->Get(AI_MATKEY_REFRACTI, index_of_refraction); // Represented as Ni in the mtl file
                     
                         m.type = DIELECTRIC;
                         m.index_of_refraction = index_of_refraction;
                     }
-                    else if (name.find("diffuse_light") != std::string::npos) {
+                    else if (name.rfind("diffuse_light", 0) != std::string::npos) {
                         aiColor3D color;
                         material->Get(AI_MATKEY_COLOR_DIFFUSE, color); // Represented as Kd in the mtl file
 
