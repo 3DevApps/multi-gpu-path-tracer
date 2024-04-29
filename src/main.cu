@@ -19,7 +19,6 @@
 #include "cuda_utils.h"
 #include "bvh.h"
 
-
 /**
  * Initializes the rendering process.
  *
@@ -57,7 +56,6 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param rand_state The random state for each thread.
  */
 __global__ void render(uint8_t *fb, int max_x, int max_y,int sample_per_pixel, camera **cam,bvh **world, curandState *rand_state) {
-    
    int i = threadIdx.x + blockIdx.x * blockDim.x;
    int j = threadIdx.y + blockIdx.y * blockDim.y;
    if((i >= max_x) || (j >= max_y)) return;
@@ -128,7 +126,7 @@ int main()
     //create_world
 
     // Load object
-    const char *file_path = "models/cube.obj";
+    const char *file_path = "models/cubes.obj";
     obj_loader loader(file_path);
 
     int number_of_faces = loader.get_total_number_of_faces();

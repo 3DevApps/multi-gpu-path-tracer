@@ -22,6 +22,8 @@ public:
     float focal_length; //distance between the camera and the viewport
     float vfov = 30.0; //vertical field of view
 
+    float3 background_color = make_float3(0.0, 0.0, 0.0);
+
     float3 lookfrom = make_float3(-4.0, 2.0, 8.0);
     float3 lookat = make_float3(-1.0, -2.0, -1.0);
     float3 vup = make_float3(0.0, 1.0, 0.0);
@@ -71,20 +73,25 @@ public:
             if ((*world)->hit(cur_ray, hit_interval, rec)) {
                 ray scattered;
                 float3 attenuation; //means color
+                float3 color_from_emission = rec.mat_ptr->emitted();
                 if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, scattered, local_rand_state)) {
-                    cur_attenuation *= attenuation;
+                    cur_attenuation *= attenuation + color_from_emission;
                     cur_ray = scattered;
                 }
                 else {
-                    return make_float3(0.0,0.0,0.0);
+                    cur_attenuation *= color_from_emission;
+                    return cur_attenuation;
+                    
+                    // return make_float3(0.0,0.0,0.0);
                 }
             }
             else {
                 //background
-                float3 unit_direction = normalize(cur_ray.direction());
-                float t = 0.5f*(unit_direction.y + 1.0f);
-                float3 c = (1.0f-t)*make_float3(1.0, 1.0, 1.0) + t*make_float3(0.5, 0.7, 1.0);
-                return cur_attenuation * c;
+                return cur_attenuation*background_color;
+                // float3 unit_direction = normalize(cur_ray.direction());
+                // float t = 0.5f*(unit_direction.y + 1.0f);
+                // float3 c = (1.0f-t)*make_float3(1.0, 1.0, 1.0) + t*make_float3(0.5, 0.7, 1.0);
+                // return cur_attenuation * c;
                 }
             }
         return make_float3(0.0,0.0,0.0); // exceeded recursion
