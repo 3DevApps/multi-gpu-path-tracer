@@ -15,12 +15,14 @@
 enum material_type {
     LAMBERTIAN,
     METAL,
-    DIELECTRIC
+    DIELECTRIC,
+    DIFFUSE_LIGHT
 };
 
 struct m_ai_material {
     material_type type ;
     float3 color_ambient;
+    float3 color_diffuse;
     float index_of_refraction;
     float shininess;
 };
@@ -69,6 +71,9 @@ __global__ void assign_triangle(hitable **d_list, int index, material** material
             }
             else if (d_mat->type == DIELECTRIC) {
                 materials[material_index] = new dielectric(d_mat->index_of_refraction);
+            }
+            else if (d_mat->type == DIFFUSE_LIGHT) {
+                materials[material_index] = new diffuse_light(d_mat->color_diffuse);
             }
         }
 
@@ -145,6 +150,13 @@ void obj_loader::load_faces(hitable **d_list) {
                     
                         m.type = DIELECTRIC;
                         m.index_of_refraction = index_of_refraction;
+                    }
+                    else if (name == aiString("diffuse_light")) {
+                        aiColor3D color;
+                        material->Get(AI_MATKEY_COLOR_DIFFUSE, color); // Represented as Kd in the mtl file
+
+                        m.type = DIFFUSE_LIGHT;
+                        m.color_diffuse = make_float3(color.r, color.g, color.b);
                     }
                     
                     checkCudaErrors(cudaMalloc((void **)&d_mat, sizeof(m_ai_material)));
