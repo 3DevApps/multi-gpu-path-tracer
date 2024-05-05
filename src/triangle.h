@@ -7,6 +7,7 @@
 #include "hitable.h"
 #include "interval.h"
 #include "aabb.h"
+#include "material.h"
 
 class triangle: public hitable
 {
