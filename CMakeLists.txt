@@ -24,11 +24,13 @@ set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 set(
         CUDA_NVCC_FLAGS 
         ${CUDA_NVCC_FLAGS}; 
-                -gencode arch=compute_75,code=sm_75 -rdc=true
+                -gencode arch=compute_75,code=sm_75
+                -gencode arch=compute_70,code=sm_70 
+                -rdc=true
 )
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
 cuda_add_executable(cuda_project ${SOURCES})
 
 target_link_libraries(cuda_project glfw OpenGL::GL GLEW::GLEW assimp::assimp)
-set_target_properties(cuda_project PROPERTIES CUDA_ARCHITECTURES "75")
+set_target_properties(cuda_project PROPERTIES CUDA_ARCHITECTURES "75,70")
