@@ -12,6 +12,7 @@
 #include "Profiling/GPUMonitor.h"
 #include "DevicePathTracer.h"
 #include <chrono>
+#include
 
 int main() {
     int view_width = 1600;
@@ -20,6 +21,9 @@ int main() {
     size_t fb_size = num_pixels*sizeof(uint8_t) * 3;
     uint8_t *fb;
     checkCudaErrors(cudaMallocManaged((void **)&fb, fb_size));
+
+    sio::client h;
+    h.connect("https://raytracer.klatka.it");
 
     RenderTask task_0{800, 900, 0, 0};
     RenderTask task_1{800, 900, 800, 0};
@@ -54,6 +58,9 @@ int main() {
 
         renderer.renderFrame(fb);
 	    window.swapBuffers();	
+
+        // Send the frame to the server
+        h.socket()->emit("frame", sio::string_message::create(std::string((char*)fb, fb_size)));
 	}
 
     monitor_thread_obj.safeTerminate();

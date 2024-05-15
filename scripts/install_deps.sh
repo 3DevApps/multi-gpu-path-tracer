@@ -45,3 +45,9 @@ for url in "${urls[@]}"; do
 done
 
 clear
+
+git clone --recurse-submodules https://github.com/socketio/socket.io-client-cpp.git
+cd socket.io-client-cpp
+cmake .
+cmake --build .
+cmake --install . --prefix "$LIB_PREFIX"
