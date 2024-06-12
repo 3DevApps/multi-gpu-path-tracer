@@ -12,6 +12,7 @@
 #include "Profiling/GPUMonitor.h"
 #include "DevicePathTracer.h"
 #include <chrono>
+#include "rtc/rtc.hpp"
 
 int main() {
     int view_width = 1600;

@@ -3,6 +3,8 @@
 GLFW_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
 GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz"
 ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
+DATACHANNEL_URL="https://github.com/paullouisageneau/libdatachannel.git"
+
 
 LIB_PREFIX=~/libs
 ARCHIVE="sources"
@@ -16,6 +18,16 @@ clear () {
 
 cmake_install () {
 	cmake .
+	cmake --build .
+	cmake --install . --prefix "$LIB_PREFIX"
+}
+
+cmake_install_libdatachannel () {
+	clear
+	git clone "$DATACHANNEL_URL"
+	cd *
+    git submodule update --init --recursive --depth 1
+	cmake -DUSE_GNUTLS=0 -DUSE_NICE=0 -DCMAKE_BUILD_TYPE=Release
 	cmake --build .
 	cmake --install . --prefix "$LIB_PREFIX"
 }
@@ -38,10 +50,12 @@ for url in "${urls[@]}"; do
 	else
 		cd *
 	fi
-
-	cmake_install
-	cd -
 	
+	cmake_install
+
+	cd -	
 done
+
+cmake_install_libdatachannel
 
 clear
