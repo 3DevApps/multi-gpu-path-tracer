@@ -28,6 +28,7 @@ set(
                 -gencode arch=compute_70,code=sm_70 
                 -gencode arch=compute_75,code=sm_75
                 -rdc=true
+                -lineinfo
 )
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")

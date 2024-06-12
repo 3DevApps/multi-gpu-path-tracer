@@ -10,10 +10,11 @@ const std::unordered_map<MouseButton, int> mouseButtonToGlfwButton = {
     { MouseButton::Middle, GLFW_MOUSE_BUTTON_MIDDLE },
 };
 
-Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title)
+Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraParams &camParams)
     : window_(nullptr, glfwDestroyWindow)
     , width_(width)
-    , height_(height) {
+    , height_(height)
+    , camParams{camParams} {
 
     if (!glfwInit()) {
         throw std::runtime_error("glfwInit() failed");
@@ -24,9 +25,13 @@ Window::Window(std::uint32_t width, std::uint32_t height, const std::string& tit
         throw std::runtime_error("Failed to create GLFW window!");
     }
 
+    glfwSetWindowUserPointer(window_.get(), (void*)camParams); 
+
     glfwMakeContextCurrent(window_.get());
     glfwSetWindowUserPointer(window_.get(), this);
     glfwSetScrollCallback(window_.get(), scrollCallback);
+    glfwSetKeyCallback(window_.get(), keyCallback);
+    glfwSetCursorPosCallback(window_.get(), cursorPositionCallback);
 
     GLenum glew_status = glewInit();
 
@@ -36,6 +41,8 @@ Window::Window(std::uint32_t width, std::uint32_t height, const std::string& tit
         fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
         throw std::runtime_error("Failed to init GLEW");
     }
+
+    // glfwSetInputMode(window_.get(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 Window::~Window() {
@@ -83,5 +90,17 @@ void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) 
     for (auto callback : this_window->scroll_callbacks_)
     {
         callback(yoffset);
+    }
+}
+
+void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
+        // std::cout << "F CLICKED" << std::endl;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+
+    if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+        // std::cout << "E CLICKED" << std::endl;
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 }
