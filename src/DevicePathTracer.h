@@ -79,7 +79,15 @@ __global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int s
         ray r = (*cam)->get_ray(u, v);
         col += (*cam)->ray_color(r, world, &local_rand_state);
     }
-    int3 color = make_int3(255.99 * col/float(sample_per_pixel)); //average color of samples
+    float3 color_modifier;
+    int device_idx;
+    cudaGetDevice(&device_idx);
+    if(device_idx == 0){
+        color_modifier = make_float3(1, 1, 1);
+    }else if(device_idx == 1){
+        color_modifier = make_float3(0.8, 0.4, 1);
+    }
+    int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
     fb[3 * pixel_index] = color.x;
     fb[3 * pixel_index + 1] = color.y;
     fb[3 * pixel_index + 2] = color.z;
@@ -146,15 +154,15 @@ public:
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
-    void renderTaskAsync(RenderTask &task, uint8_t *fb) {
+    void renderTaskAsync(RenderTask &task, uint8_t *fb,cudaStream_t stream) {
         dim3 blocks(task.width / THREADS_PER_DIM_X_ + 1, task.height / THREADS_PER_DIM_Y_ + 1);
         dim3 threads(THREADS_PER_DIM_X_, THREADS_PER_DIM_Y_);
 
         cudaSetDevice(device_idx_);
-        render<<<blocks, threads>>>(
+        render<<<blocks, threads,0,stream>>>(
             fb, task, 
             view_width_, view_height_,
-            5, scene_.d_camera,
+            100, scene_.d_camera,
             scene_.d_world,
             d_rand_state_
         );
