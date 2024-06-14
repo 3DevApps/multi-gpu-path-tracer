@@ -98,9 +98,9 @@ int main() {
     std::thread gpu_0_thread_2(std::ref(t0_2));
     std::thread gpu_0_thread_3(std::ref(t0_3));
     std::thread gpu_1_thread_0(std::ref(t1_0));
-    std::thread gpu_1_thread_1(std::ref(t1_1));
-    std::thread gpu_1_thread_2(std::ref(t1_2));
-    std::thread gpu_1_thread_3(std::ref(t1_3));
+    // std::thread gpu_1_thread_1(std::ref(t1_1));
+    // std::thread gpu_1_thread_2(std::ref(t1_2));
+    // std::thread gpu_1_thread_3(std::ref(t1_3));
 
 
     
