@@ -5,6 +5,8 @@
 #include <float.h>
 #include <fstream>
 #include <curand_kernel.h>
+#include "semaphore.h"
+#include <mutex>
 #include "obj_loader.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
@@ -63,11 +65,13 @@ int main() {
     TaskGenerator task_gen(view_width, view_height);
 
     std::vector<RenderTask> render_tasks;
-    // task_gen.generateTasks(num_streams_per_gpu*2,render_tasks);
+
     task_gen.generateTasks(32,32,render_tasks);
     SafeQueue<RenderTask> queue;
     
-
+    std::condition_variable thread_cv;
+    semaphore thread_semaphore(0);
+    std::atomic_int completed_streams = 0;
 
 
 
@@ -85,23 +89,25 @@ int main() {
         cudaStreamCreate(&stream_1[i]);
         cudaEventCreate(&event_1[i]);
     }
-    GPUThread t0_0(0,stream_0[0], loader, view_width, view_height, queue, fb);
-    GPUThread t0_1(0,stream_0[1], loader, view_width, view_height, queue, fb);
-    GPUThread t0_2(0,stream_0[2], loader, view_width, view_height, queue, fb);
-    GPUThread t0_3(0,stream_0[3], loader, view_width, view_height, queue, fb);
-    GPUThread t1_0(1,stream_1[0], loader, view_width, view_height, queue, fb);
-    GPUThread t1_1(1,stream_1[1], loader, view_width, view_height, queue, fb);
-    GPUThread t1_2(1,stream_1[2], loader, view_width, view_height, queue, fb);
-    GPUThread t1_3(1,stream_1[3], loader, view_width, view_height, queue, fb);
+    GPUThread t0_0(0,stream_0[0], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t0_1(0,stream_0[1], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t0_2(0,stream_0[2], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t0_3(0,stream_0[3], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t1_0(1,stream_1[0], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t1_1(1,stream_1[1], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t1_2(1,stream_1[2], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
+    GPUThread t1_3(1,stream_1[3], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams);
     std::thread gpu_0_thread_0(std::ref(t0_0));
     std::thread gpu_0_thread_1(std::ref(t0_1));
     std::thread gpu_0_thread_2(std::ref(t0_2));
     std::thread gpu_0_thread_3(std::ref(t0_3));
     std::thread gpu_1_thread_0(std::ref(t1_0));
-    // std::thread gpu_1_thread_1(std::ref(t1_1));
-    // std::thread gpu_1_thread_2(std::ref(t1_2));
-    // std::thread gpu_1_thread_3(std::ref(t1_3));
+    std::thread gpu_1_thread_1(std::ref(t1_1));
+    std::thread gpu_1_thread_2(std::ref(t1_2));
+    std::thread gpu_1_thread_3(std::ref(t1_3));
 
+    std::mutex m;
+    std::unique_lock<std::mutex> lk(m);
 
     
 
@@ -110,10 +116,7 @@ int main() {
 
 
 
-        // insert elements
-        for (int i = 0; i < render_tasks.size(); i++) {
-            queue.Produce(std::move(render_tasks[i]));
-        }
+       
         
         window.getMousePos(x, y);
 
@@ -148,24 +151,18 @@ int main() {
         pt0.setLookAt(lookat);
         pt1.setLookAt(lookat);
 
-        auto start = std::chrono::high_resolution_clock::now();
-        // t0_0.devicePathTracer.setLookAt(lookat);
+         // insert elements
+        for (int i = 0; i < render_tasks.size(); i++) {
+            queue.Produce(std::move(render_tasks[i]));
+        }
 
-        // for (int i = 0; i < num_streams_per_gpu; i++) {
-        //     pt0.renderTaskAsync(render_tasks[i], fb, stream_0[i]);
-        //     pt1.renderTaskAsync(render_tasks[i + num_streams_per_gpu], fb, stream_1[i]);
-        // }
-        
-        // for (int i = 0; i < num_streams_per_gpu; i++) {
-        //     cudaEventRecord(event_0[i], stream_0[i]);
-        //     cudaEventRecord(event_1[i], stream_1[i]);
-        // }
-        
-        // for(int i = 0; i < num_streams_per_gpu; i++) {
-        //     cudaEventSynchronize(event_0[i]);
-        //     cudaEventSynchronize(event_1[i]);
-        // }
-        
+        auto start = std::chrono::high_resolution_clock::now();
+
+        thread_semaphore.release(2*num_streams_per_gpu);
+        while(completed_streams != num_streams_per_gpu * 2) {
+            thread_cv.wait(lk);
+        }
+        completed_streams = 0;
 
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
