@@ -3,7 +3,7 @@
 GLFW_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
 GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz"
 ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
-DATACHANNEL_URL="https://github.com/paullouisageneau/libdatachannel.git"
+IXWEBSOCKET_URL="https://github.com/machinezone/IXWebSocket.git"
 
 
 LIB_PREFIX=~/libs
@@ -22,12 +22,11 @@ cmake_install () {
 	cmake --install . --prefix "$LIB_PREFIX"
 }
 
-cmake_install_libdatachannel () {
+cmake_install_ixwebsocket () {
 	clear
-	git clone "$DATACHANNEL_URL"
+	git clone --branch v11.4.5 --depth 1 $IXWEBSOCKET_URL
 	cd *
-    git submodule update --init --recursive --depth 1
-	cmake -DUSE_GNUTLS=0 -DUSE_NICE=0 -DCMAKE_BUILD_TYPE=Release
+	cmake -DUSE_TLS=1 .
 	cmake --build .
 	cmake --install . --prefix "$LIB_PREFIX"
 }
@@ -56,6 +55,6 @@ for url in "${urls[@]}"; do
 	cd -	
 done
 
-cmake_install_libdatachannel
+cmake_install_ixwebsocket
 
 clear
