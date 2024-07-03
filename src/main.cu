@@ -51,26 +51,23 @@ int main(int argc, char **argv) {
 
     // // Setup a callback to be fired (in a background thread, watch out for race conditions !)
     // // when a message or an event (open, close, error) is received
-    // webSocket.setOnMessageCallback([](const ix::WebSocketMessagePtr& msg)
-    //     {
-    //         if (msg->type == ix::WebSocketMessageType::Message)
-    //         {
-    //             std::cout << "received message: " << msg->str << std::endl;
-    //             std::cout << "> " << std::flush;
-    //         }
-    //         else if (msg->type == ix::WebSocketMessageType::Open)
-    //         {
-    //             std::cout << "Connection established" << std::endl;
-    //             std::cout << "> " << std::flush;
-    //         }
-    //         else if (msg->type == ix::WebSocketMessageType::Error)
-    //         {
-    //             // Maybe SSL is not configured properly
-    //             std::cout << "Connection error: " << msg->errorInfo.reason << std::endl;
-    //             std::cout << "> " << std::flush;
-    //         }
-    //     }
-    // );
+    webSocket.setOnMessageCallback([](const ix::WebSocketMessagePtr& msg)
+        {
+            if (msg->type == ix::WebSocketMessageType::Message)
+            {
+                std::cout << "received message: " << msg->str << std::endl;
+            }
+            else if (msg->type == ix::WebSocketMessageType::Open)
+            {
+                std::cout << "Connection established" << std::endl;
+            }
+            else if (msg->type == ix::WebSocketMessageType::Error)
+            {
+                // Maybe SSL is not configured properly
+                std::cout << "Connection error: " << msg->errorInfo.reason << std::endl;
+            }
+        }
+    );
 
     // Now that our callback is setup, we can start our background thread and receive messages
     webSocket.start();
@@ -78,14 +75,14 @@ int main(int argc, char **argv) {
     DevicePathTracer pt0(0, loader, view_width, view_height);
     DevicePathTracer pt1(1, loader, view_width, view_height);
 
-    Window window(view_width, view_height, "MultiGPU-PathTracer");
-    Renderer renderer(window);
+    // Window window(view_width, view_height, "MultiGPU-PathTracer");
+    // Renderer renderer(window);
 
     MonitorThread monitor_thread_obj;
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
-    while (!window.shouldClose()) {
-        window.pollEvents();
+    while (true) {
+        // window.pollEvents();
 
         auto start = std::chrono::high_resolution_clock::now();
 
@@ -103,16 +100,18 @@ int main(int argc, char **argv) {
         for (int j = view_height-1; j >= 0; j--) {
             for (int i = 0; i < view_width; i++) {
                 size_t pixel_index = j*view_width + i;
-                int3 color = make_int3(255.99*fb[pixel_index].x, 255.99*fb[pixel_index].y, 255.99*fb[pixel_index].z);
-                pixel_data += std::to_string(color.x) + "," + std::to_string(color.y) + "," + std::to_string(color.z) + ",";
+                auto x = fb[3*pixel_index];
+                auto y = fb[3*pixel_index+1];
+                auto z = fb[3*pixel_index+2];
+                pixel_data += std::to_string(x) + "," + std::to_string(y) + "," + std::to_string(z) + ",";
             }
         }
 
         // Send pixel data to server
         webSocket.send("JOB_MESSAGE#" + std::string(job_id) + "#" + pixel_data);
 
-        renderer.renderFrame(fb);
-	    window.swapBuffers();	
+        // renderer.renderFrame(fb);
+	    // window.swapBuffers();	
 	}
 
     monitor_thread_obj.safeTerminate();
