@@ -14,7 +14,6 @@ enum class MouseButton {
     Middle,
 };
 
-
 class Window {
 public:
     Window(Window const&) = delete;
@@ -33,8 +32,13 @@ public:
     std::uint32_t getHeight() const;
     bool getMouseButton(MouseButton button) const;
 
+
 private:
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+    static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {}
+
     std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> window_;
     std::vector<std::function<void(float)>> scroll_callbacks_;
     std::uint32_t width_ = 0u;
