@@ -78,9 +78,10 @@ __global__ void assign_triangle(hitable **d_list, int index, material** material
             }
             else if (d_mat->type == DIFFUSE_LIGHT) {
                 materials[material_index] = new diffuse_light(d_mat->color_diffuse);
-                printf("dupa3 %f %f %f \n", d_mat->color_diffuse.x, d_mat->color_diffuse.y, d_mat->color_diffuse.z);
-                // cout << "dupa3 " << d_mat->color_diffuse;
-                
+            } 
+            else {
+                // Use LAMBERTIAN by default
+                materials[material_index] = new lambertian(d_mat->color_ambient);
             }
         }
 
