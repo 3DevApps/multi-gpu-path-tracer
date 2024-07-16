@@ -20,11 +20,12 @@ public:
     float aspect_ratio; //width/height
     int max_depth = 3; //Maximum nuber of bounces
     float focal_length; //distance between the camera and the viewport
-    float vfov = 90.0; //vertical field of view
+    float vfov = 45.0; //vertical field of view
 
     float3 background_color = make_float3(0.0, 0.0, 0.0);
 
-    float3 lookfrom = make_float3(-4.0, 2.0, 8.0);
+    float3 look_from = make_float3(-277.676, 157.279, 545.674);
+    
     // float3 lookfrom = make_float3(-0.278, -0.8, 0.273);
     // float3 lookat = make_float3(-1.0, -2.0, -1.0);
     float3 lookat = make_float3(1.0, 0, 0);
@@ -32,23 +33,30 @@ public:
     
     float3 u, v, w; //orthonormal basis for the camera
 
-    __device__ void set_camera_lookat(float3 lat) {
-        lookat = lookfrom + lat;
+    __device__ void recalculate_camera_params() {
         aspect_ratio = float(image_width) / float(image_height);
-        focal_length = length(lookfrom - lookat);
-        //viewport dimension calculation
-        float theta = vfov * M_PI / 180; //deegres to radians
+        focal_length = length(look_from - lookat);
+        float theta = vfov * M_PI / 180; 
         float half_height = tan(theta/2);
         float half_width = aspect_ratio * half_height;
-        origin = lookfrom;
-        // lower_left_corner = origin - horizontal/2 - vertical/2 - make_float3(0.0, 0.0, focal_length);  
-        w = normalize(lookfrom - lookat);
+        origin = look_from; 
+        w = normalize(look_from - lookat);
         u = normalize(cross(vup, w));
         v = cross(w, u);
 
         lower_left_corner = origin - half_width*u - half_height*v - w;
         horizontal = 2*half_width*u;
         vertical = 2*half_height*v;   
+    }
+
+    __device__ void set_camera_front(float3 front) {
+        lookat = look_from + front;
+        recalculate_camera_params();
+    }
+
+    __device__ void set_camera_look_from(float3 lf) {
+        look_from = lf;
+        recalculate_camera_params();
     }
 
     /**
@@ -58,21 +66,7 @@ public:
      * It also allows for generating rays from the camera's position to specific points on the image plane.
      */
     __device__ camera() {
-        aspect_ratio = float(image_width) / float(image_height);
-        focal_length = length(lookfrom - lookat);
-        //viewport dimension calculation
-        float theta = vfov * M_PI / 180; //deegres to radians
-        float half_height = tan(theta/2);
-        float half_width = aspect_ratio * half_height;
-        origin = lookfrom;
-        // lower_left_corner = origin - horizontal/2 - vertical/2 - make_float3(0.0, 0.0, focal_length);  
-        w = normalize(lookfrom - lookat);
-        u = normalize(cross(vup, w));
-        v = cross(w, u);
-
-        lower_left_corner = origin - half_width*u - half_height*v - w;
-        horizontal = 2*half_width*u;
-        vertical = 2*half_height*v;        
+        recalculate_camera_params();     
     }
     
     /**

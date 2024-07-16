@@ -79,6 +79,7 @@ __global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int s
         ray r = (*cam)->get_ray(u, v);
         col += (*cam)->ray_color(r, world, &local_rand_state);
     }
+
     float3 color_modifier;
     int device_idx;
     cudaGetDevice(&device_idx);
@@ -121,9 +122,15 @@ __global__ void free_world(hitable **d_list, hitable_list **d_world, camera **d_
     delete *d_camera;    
 }
 
-__global__ void set_camera_lookat(camera ** cam, float3 lookat) {
+__global__ void setCameraFront(camera ** cam, float3 front) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {   
-        (*cam)->set_camera_lookat(lookat);
+        (*cam)->set_camera_front(front);
+    }
+}
+
+__global__ void setCameraLookFrom(camera ** cam, float3 lookFrom) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {   
+        (*cam)->set_camera_look_from(lookFrom);
     }
 }
 
@@ -159,10 +166,10 @@ public:
         dim3 threads(THREADS_PER_DIM_X_, THREADS_PER_DIM_Y_);
 
         cudaSetDevice(device_idx_);
-        render<<<blocks, threads,0,stream>>>(
+        render<<<blocks, threads>>>(
             fb, task, 
             view_width_, view_height_,
-            100, scene_.d_camera,
+            3, scene_.d_camera,
             scene_.d_world,
             d_rand_state_
         );
@@ -174,9 +181,16 @@ public:
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
-    void setLookAt(float3 lookat) {
+    void setFront(float3 front) {
         cudaSetDevice(device_idx_);
-        set_camera_lookat<<<1,1>>>(scene_.d_camera, lookat);
+        setCameraFront<<<1,1>>>(scene_.d_camera, front);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+    }
+
+    void setLookFrom(float3 lookFrom) {
+        cudaSetDevice(device_idx_);
+        setCameraLookFrom<<<1,1>>>(scene_.d_camera, lookFrom);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
@@ -187,8 +201,6 @@ public:
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
-
-    
 
 private:
     int device_idx_;

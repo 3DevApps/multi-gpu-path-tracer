@@ -3,6 +3,7 @@
 #include "Window.h"
 #include <stdexcept>
 #include <cstdio>
+#include <cmath>
 
 const std::unordered_map<MouseButton, int> mouseButtonToGlfwButton = {
     { MouseButton::Left,   GLFW_MOUSE_BUTTON_LEFT   },
@@ -10,10 +11,11 @@ const std::unordered_map<MouseButton, int> mouseButtonToGlfwButton = {
     { MouseButton::Middle, GLFW_MOUSE_BUTTON_MIDDLE },
 };
 
-Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title)
+Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraParams& camParams)
     : window_(nullptr, glfwDestroyWindow)
     , width_(width)
-    , height_(height) {
+    , height_(height)
+    , camParams(camParams) {
 
     if (!glfwInit()) {
         throw std::runtime_error("glfwInit() failed");
@@ -29,6 +31,7 @@ Window::Window(std::uint32_t width, std::uint32_t height, const std::string& tit
     glfwSetScrollCallback(window_.get(), scrollCallback);
     glfwSetKeyCallback(window_.get(), keyCallback);
     glfwSetCursorPosCallback(window_.get(), cursorPositionCallback);
+    glfwSetKeyCallback(window_.get(), keyCallback);
 
     GLenum glew_status = glewInit();
 
@@ -91,13 +94,55 @@ void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) 
 }
 
 void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
-        // std::cout << "F CLICKED" << std::endl;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    Window* self = (Window*)glfwGetWindowUserPointer(window);
+    const float cameraSpeed = 0.5f;
+
+    // std::cout << self->camParams.lookFrom.x << " " << self->camParams.lookFrom.y << " " << self->camParams.lookFrom.z << std::endl;
+    
+    if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->camParams.lookFrom += cameraSpeed * self->camParams.front;
+    if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->camParams.lookFrom -= cameraSpeed * self->camParams.front;
+    if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->camParams.lookFrom -= normalize(cross(self->camParams.front, make_float3(0, 1, 0))) * cameraSpeed;
+    if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->camParams.lookFrom += normalize(cross(self->camParams.front, make_float3(0, 1, 0))) * cameraSpeed;
+}
+
+float getRadians(float rad) {
+    return rad * M_PI / 180;
+}
+
+void Window::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {
+    Window* self = (Window*)glfwGetWindowUserPointer(window);
+    
+    if (self->firstMouse) {
+        self->lastX = (double)xpos;
+        self->lastY = (double)ypos;
+        self->firstMouse = false;
     }
 
-    if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-        // std::cout << "E CLICKED" << std::endl;
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    }
+    double xoffset = (double)xpos - self->lastX;
+    double yoffset = self->lastY - (double)ypos; 
+    self->lastX = xpos;
+    self->lastY = ypos;
+
+    double sensitivity = 0.5f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    self->yaw += xoffset;
+    self->pitch += yoffset;
+
+    if (self->pitch > 89.0f)
+        self->pitch = 89.0f;
+    if (self->pitch < -89.0f)
+        self->pitch = -89.0f;
+
+    self->camParams.front = normalize(make_float3(
+        cos(getRadians(self->yaw)) * cos(getRadians(self->pitch)),
+        sin(getRadians(self->pitch)), 
+        sin(getRadians(self->yaw)) * cos(getRadians(self->pitch))));
+
+    // std::cout << self->camParams.front.x << " " << self->camParams.front.y << " " << self->camParams.front.z << std::endl;
 }

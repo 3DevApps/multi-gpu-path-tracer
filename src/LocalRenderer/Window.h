@@ -7,6 +7,9 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <iostream>
+// #include "../obj_loader.h"
+#include "../CameraParams.h"
 
 enum class MouseButton {
     Left,
@@ -19,7 +22,7 @@ public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
-    Window(std::uint32_t width, std::uint32_t height, const std::string& title);
+    Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraParams& camParams);
     ~Window();
 
     void getMousePos(int& x, int& y) const;
@@ -32,12 +35,18 @@ public:
     std::uint32_t getHeight() const;
     bool getMouseButton(MouseButton button) const;
 
+    //public for static callbacks
+    CameraParams& camParams;
+    bool firstMouse;
+    float lastX;
+    float lastY;
+    float pitch;
+    float yaw;
 
 private:
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-
-    static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos) {}
+    static void cursorPositionCallback(GLFWwindow* window, double xpos, double ypos);
 
     std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> window_;
     std::vector<std::function<void(float)>> scroll_callbacks_;
