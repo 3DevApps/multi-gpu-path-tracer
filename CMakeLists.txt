@@ -18,6 +18,7 @@ find_package(glfw3 REQUIRED CONFIG)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(assimp REQUIRED)
+find_package(ixwebsocket REQUIRED)
 
 set(CUDA_SEPARABLE_COMPILATION ON)
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
@@ -34,6 +35,6 @@ set(
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
 cuda_add_executable(cuda_project ${SOURCES})
 
-target_link_libraries(cuda_project glfw OpenGL::GL GLEW::GLEW assimp::assimp CUDA::nvml)
+target_link_libraries(cuda_project glfw OpenGL::GL GLEW::GLEW assimp::assimp CUDA::nvml ixwebsocket::ixwebsocket)
 set_target_properties(cuda_project PROPERTIES CUDA_ARCHITECTURES "75,70")
 

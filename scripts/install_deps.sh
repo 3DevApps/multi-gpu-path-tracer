@@ -3,6 +3,8 @@
 GLFW_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
 GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz"
 ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
+IXWEBSOCKET_URL="https://github.com/machinezone/IXWebSocket.git"
+
 
 LIB_PREFIX=~/libs
 ARCHIVE="sources"
@@ -16,6 +18,15 @@ clear () {
 
 cmake_install () {
 	cmake .
+	cmake --build .
+	cmake --install . --prefix "$LIB_PREFIX"
+}
+
+cmake_install_ixwebsocket () {
+	clear
+	git clone --branch v11.4.5 --depth 1 $IXWEBSOCKET_URL
+	cd *
+	cmake -DUSE_TLS=1 .
 	cmake --build .
 	cmake --install . --prefix "$LIB_PREFIX"
 }
@@ -38,10 +49,12 @@ for url in "${urls[@]}"; do
 	else
 		cd *
 	fi
-
-	cmake_install
-	cd -
 	
+	cmake_install
+
+	cd -	
 done
+
+cmake_install_ixwebsocket
 
 clear

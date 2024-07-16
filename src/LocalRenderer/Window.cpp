@@ -14,8 +14,7 @@ const std::unordered_map<MouseButton, int> mouseButtonToGlfwButton = {
 Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraParams& camParams)
     : window_(nullptr, glfwDestroyWindow)
     , width_(width)
-    , height_(height)
-    , camParams{camParams} {
+    , height_(height) {
 
     if (!glfwInit()) {
         throw std::runtime_error("glfwInit() failed");
@@ -25,8 +24,6 @@ Window::Window(std::uint32_t width, std::uint32_t height, const std::string& tit
     if (!window_.get()) {
         throw std::runtime_error("Failed to create GLFW window!");
     }
-
-    glfwSetWindowUserPointer(window_.get(), (void*)this); 
 
     glfwMakeContextCurrent(window_.get());
     glfwSetWindowUserPointer(window_.get(), this);
