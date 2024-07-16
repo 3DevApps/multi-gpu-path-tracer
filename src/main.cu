@@ -38,8 +38,8 @@ int main() {
     const char *file_path = "models/cornell-box.obj";
     obj_loader loader(file_path);
 
-    DevicePathTracer pt0(0, loader, view_width, view_height);
-    DevicePathTracer pt1(1, loader, view_width, view_height);
+    // DevicePathTracer pt0(0, loader, view_width, view_height);
+    // DevicePathTracer pt1(1, loader, view_width, view_height);
     CameraParams camParams;
     camParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
     camParams.front = make_float3(-0.26, 0.121, -0.9922);
@@ -49,11 +49,6 @@ int main() {
 
     MonitorThread monitor_thread_obj;
     std::thread monitor_thread(std::ref(monitor_thread_obj));
-
-    int x, y;
-    bool firstMouse;
-    double lastX, lastY;
-    double yaw = 0, pitch = 0;
 
     // ----------------------------------------------------------------- //
     // SafeQueue<RenderTask> queue;
@@ -115,13 +110,11 @@ int main() {
 
     while (!window.shouldClose()) {
         window.pollEvents();
+        // pt0.setFront(camParams.front);
+        // pt0.setLookFrom(camParams.lookFrom);
 
-
-        pt0.setFront(camParams.front);
-        pt0.setLookFrom(camParams.lookFrom);
-
-        pt1.setFront(camParams.front);
-        pt1.setLookFrom(camParams.lookFrom);
+        // pt1.setFront(camParams.front);
+        // pt1.setLookFrom(camParams.lookFrom);
 
          // insert elements
         for (int i = 0; i < render_tasks.size(); i++) {
