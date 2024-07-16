@@ -113,9 +113,15 @@ __global__ void free_world(hitable **d_list, hitable_list **d_world, camera **d_
     delete *d_camera;    
 }
 
-__global__ void set_camera_lookat(camera ** cam, float3 lookat) {
+__global__ void setCameraFront(camera ** cam, float3 front) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {   
-        (*cam)->set_camera_lookat(lookat);
+        (*cam)->set_camera_front(front);
+    }
+}
+
+__global__ void setCameraLookFrom(camera ** cam, float3 lookFrom) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {   
+        (*cam)->set_camera_look_from(lookFrom);
     }
 }
 
@@ -154,7 +160,7 @@ public:
         render<<<blocks, threads>>>(
             fb, task, 
             view_width_, view_height_,
-            5, scene_.d_camera,
+            3, scene_.d_camera,
             scene_.d_world,
             d_rand_state_
         );
@@ -166,9 +172,16 @@ public:
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
-    void setLookAt(float3 lookat) {
+    void setFront(float3 front) {
         cudaSetDevice(device_idx_);
-        set_camera_lookat<<<1,1>>>(scene_.d_camera, lookat);
+        setCameraFront<<<1,1>>>(scene_.d_camera, front);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+    }
+
+    void setLookFrom(float3 lookFrom) {
+        cudaSetDevice(device_idx_);
+        setCameraLookFrom<<<1,1>>>(scene_.d_camera, lookFrom);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
@@ -179,8 +192,6 @@ public:
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
-
-    
 
 private:
     int device_idx_;

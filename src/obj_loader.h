@@ -65,11 +65,11 @@ __global__ void assign_triangle(hitable **d_list, int index, material** material
         if (materials[material_index] == nullptr) {
             if (d_mat->type == LAMBERTIAN) {
                 materials[material_index] = new lambertian(d_mat->color_ambient);
-                printf("dupa1 %f %f %f \n", d_mat->color_ambient.x, d_mat->color_ambient.y, d_mat->color_ambient.z);
+                // printf("dupa1 %f %f %f \n", d_mat->color_ambient.x, d_mat->color_ambient.y, d_mat->color_ambient.z);
             }
             else if (d_mat->type == METAL) {
                 materials[material_index] = new metal(d_mat->color_ambient, d_mat->shininess);
-                printf("dupa2 %f %f %f \n", d_mat->color_ambient.x, d_mat->color_ambient.y, d_mat->color_ambient.z);
+                // printf("dupa2 %f %f %f \n", d_mat->color_ambient.x, d_mat->color_ambient.y, d_mat->color_ambient.z);
                 // cout << "dupa2 " << d_mat->color_ambient;
             }
             else if (d_mat->type == DIELECTRIC) {
@@ -78,7 +78,7 @@ __global__ void assign_triangle(hitable **d_list, int index, material** material
             }
             else if (d_mat->type == DIFFUSE_LIGHT) {
                 materials[material_index] = new diffuse_light(d_mat->color_diffuse);
-                printf("dupa3 %f %f %f \n", d_mat->color_diffuse.x, d_mat->color_diffuse.y, d_mat->color_diffuse.z);
+                // printf("dupa3 %f %f %f \n", d_mat->color_diffuse.x, d_mat->color_diffuse.y, d_mat->color_diffuse.z);
                 // cout << "dupa3 " << d_mat->color_diffuse;
                 
             }

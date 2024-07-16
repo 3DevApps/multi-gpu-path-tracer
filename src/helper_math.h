@@ -41,6 +41,8 @@
 
 #include "cuda_runtime.h"
 
+#include <iostream>
+
 typedef unsigned int uint;
 typedef unsigned short ushort;
 
@@ -1439,17 +1441,18 @@ inline __host__ __device__ float3 reflect(float3 i, float3 n)
 //     float3 r_out_parallel = -sqrt(fabs(1.0 - dot(r_out_perp,r_out_perp))) * n;
 //     return r_out_perp + r_out_parallel;
 // }
-__device__ bool refract(const float3& v, const float3& n, float ni_over_nt, float3& refracted) {
-    float3 uv = normalize(v);
-    float dt = dot(uv, n);
-    float discriminant = 1.0f - ni_over_nt*ni_over_nt*(1-dt*dt);
-    if (discriminant > 0) {
-        refracted = ni_over_nt*(uv - n*dt) - n*sqrt(discriminant);
-        return true;
-    }
-    else
-        return false;
-}
+// __device__ bool refract(const float3& v, const float3& n, float ni_over_nt, float3& refracted) {
+//     float3 uv = normalize(v);
+//     float dt = dot(uv, n);
+//     float discriminant = 1.0f - ni_over_nt*ni_over_nt*(1-dt*dt);
+//     if (discriminant > 0) {
+//         refracted = ni_over_nt*(uv - n*dt) - n*sqrt(discriminant);
+//         return true;
+//     }
+//     else
+//         return false;
+// }
+__device__ bool refract(const float3& v, const float3& n, float ni_over_nt, float3& refracted);
 
 ////////////////////////////////////////////////////////////////////////////////
 // cross product
@@ -1491,10 +1494,11 @@ inline __device__ __host__ float4 smoothstep(float4 a, float4 b, float4 x)
 ////////////////////////////////////////////////////////////////////////////////
 // stream
 ////////////////////////////////////////////////////////////////////////////////
-__host__ std::ostream& operator<<(std::ostream& os, const float3& vec) {
-    os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")";
-    return os;
-}
+// __host__ std::ostream& operator<<(std::ostream& os, const float3& vec) {
+//     os << "(" << vec.x << ", " << vec.y << ", " << vec.z << ")";
+//     return os;
+// }
+__host__ std::ostream& operator<<(std::ostream& os, const float3& vec);
 ////////////////////////////////////////////////////////////////////////////////
 // random generators
 ////////////////////////////////////////////////////////////////////////////////
