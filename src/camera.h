@@ -102,10 +102,6 @@ public:
             }
             else {
                 //background
-                // float3 unit_direction = normalize(cur_ray.direction());
-                // float t = 0.5f*(unit_direction.y + 1.0f);
-                // float3 c = (1.0f-t)*make_float3(1.0, 1.0, 1.0) + t*make_float3(0.5, 0.7, 1.0);
-                // return cur_attenuation * c;
                 return make_float3(0, 0, 0) * cur_attenuation;
                 }
             }
