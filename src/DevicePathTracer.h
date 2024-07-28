@@ -25,7 +25,7 @@ struct RenderTask {
 
 struct Scene {
     hitable **d_list;
-    bvh **d_world;
+    hitable_list **d_world;
     camera **d_camera;
 };
 
@@ -65,7 +65,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int sample_per_pixel, camera **cam,bvh **world, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int sample_per_pixel, camera **cam,hitable_list **world, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -79,7 +79,16 @@ __global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int s
         ray r = (*cam)->get_ray(u, v);
         col += (*cam)->ray_color(r, world, &local_rand_state);
     }
-    int3 color = make_int3(255.99 * col/float(sample_per_pixel)); //average color of samples
+
+    float3 color_modifier;
+    int device_idx;
+    cudaGetDevice(&device_idx);
+    if(device_idx == 0){
+        color_modifier = make_float3(1, 1, 1);
+    }else if(device_idx == 1){
+        color_modifier = make_float3(0.8, 0.4, 1);
+    }
+    int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
     fb[3 * pixel_index] = color.x;
     fb[3 * pixel_index + 1] = color.y;
     fb[3 * pixel_index + 2] = color.z;
@@ -97,20 +106,32 @@ __global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int s
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(bvh **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
+__global__ void create_world(hitable_list **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                       
-        *d_world  = new bvh(d_list, d_list_size);
+        *d_world  = new hitable_list(d_list, d_list_size);
         *d_camera = new camera();
     }
 }
 
-__global__ void free_world(hitable **d_list, bvh **d_world, camera **d_camera, int d_list_size) {
+__global__ void free_world(hitable **d_list, hitable_list **d_world, camera **d_camera, int d_list_size) {
     for (int i=0; i < d_list_size; i++) {
         delete d_list[i];
     }
 
     delete *d_world;
     delete *d_camera;    
+}
+
+__global__ void setCameraFront(camera ** cam, float3 front) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {   
+        (*cam)->set_camera_front(front);
+    }
+}
+
+__global__ void setCameraLookFrom(camera ** cam, float3 lookFrom) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {   
+        (*cam)->set_camera_look_from(lookFrom);
+    }
 }
 
 class DevicePathTracer {
@@ -123,7 +144,7 @@ public:
 
         checkCudaErrors(cudaMalloc((void **)&scene_.d_list, number_of_faces_ * sizeof(hitable *)));
         loader.load_faces(scene_.d_list);
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh *)));
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
         checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
 
         checkCudaErrors(cudaMalloc((void **)&d_rand_state_, num_pixels*sizeof(curandState))); //
@@ -140,7 +161,7 @@ public:
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
-    void renderTaskAsync(RenderTask &task, uint8_t *fb) {
+    void renderTaskAsync(RenderTask &task, uint8_t *fb,cudaStream_t stream) {
         dim3 blocks(task.width / THREADS_PER_DIM_X_ + 1, task.height / THREADS_PER_DIM_Y_ + 1);
         dim3 threads(THREADS_PER_DIM_X_, THREADS_PER_DIM_Y_);
 
@@ -148,7 +169,7 @@ public:
         render<<<blocks, threads>>>(
             fb, task, 
             view_width_, view_height_,
-            100, scene_.d_camera,
+            3, scene_.d_camera,
             scene_.d_world,
             d_rand_state_
         );
@@ -156,6 +177,20 @@ public:
 
     void waitForRenderTask() {
         cudaSetDevice(device_idx_);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+    }
+
+    void setFront(float3 front) {
+        cudaSetDevice(device_idx_);
+        setCameraFront<<<1,1>>>(scene_.d_camera, front);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+    }
+
+    void setLookFrom(float3 lookFrom) {
+        cudaSetDevice(device_idx_);
+        setCameraLookFrom<<<1,1>>>(scene_.d_camera, lookFrom);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
@@ -175,9 +210,9 @@ private:
     dim3 threads_;
     curandState *d_rand_state_;
     int number_of_faces_;
-    Scene scene_{};
     const int THREADS_PER_DIM_X_ = 8;
     const int THREADS_PER_DIM_Y_ = 8;
+    Scene scene_{};
 };
 
 
