@@ -19,6 +19,47 @@
 #include <ixwebsocket/IXUserAgent.h>
 #include <ixwebsocket/IXWebSocketSendData.h>
 #include <png.h>
+#include <turbojpeg.h> 
+#include <cstdint>
+
+bool SaveJPEG(const std::vector<uint8_t>& pixels, int width, int height, int quality, std::vector<uint8_t>& jpegData)
+{
+    tjhandle _jpegCompressor = tjInitCompress();
+    if (_jpegCompressor == nullptr) {
+        std::cerr << "Failed to initialize jpeg compressor" << std::endl;
+        return false;
+    }
+
+    unsigned char* compressedImage = nullptr;
+    unsigned long compressedSize = 0;
+
+    if (tjCompress2(
+            _jpegCompressor,
+            (unsigned char*)pixels.data(),
+            width,
+            0, // pitch (0 = width * bytes per pixel)
+            height,
+            TJPF_RGB, // Pixel format
+            &compressedImage,
+            &compressedSize,
+            TJSAMP_444, // Subsampling
+            quality, // JPEG quality
+            TJFLAG_FASTDCT) != 0)
+    {
+        std::cerr << "Failed to compress image: " << tjGetErrorStr() << std::endl;
+        tjDestroy(_jpegCompressor);
+        return false;
+    }
+
+    // Copy data to std::vector
+    jpegData.assign(compressedImage, compressedImage + compressedSize);
+
+    // Clean up
+    tjFree(compressedImage);
+    tjDestroy(_jpegCompressor);
+
+    return true;
+}
 
 // Custom user write function to store PNG data into a vector
 void write_png_data_to_vector(png_structp png_ptr, png_bytep data, png_size_t length) {
@@ -173,22 +214,43 @@ int main(int argc, char **argv) {
             }
         }
 
-        std::vector<uint8_t> png_output;
-        if (create_png(pixelData, view_width, view_height, png_output)) {
+        int quality = 75; // JPEG quality (1-100)
+        std::vector<uint8_t> jpegData;
+        if (SaveJPEG(pixelData, view_width, view_height, quality, jpegData)) {
             std::string messagePrefix = "JOB_MESSAGE#RENDER#";
             std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
-            png_output.insert(png_output.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
-            ix::IXWebSocketSendData IXPixelData(png_output);
+            jpegData.insert(jpegData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
+            ix::IXWebSocketSendData IXPixelData(jpegData);
             stop = std::chrono::high_resolution_clock::now();
 
-    // Calculate the duration in milliseconds
-        duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+            // Calculate the duration in milliseconds
+            duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 
-        // Print the duration in milliseconds
-        std::cout << "Time taken by function: " << duration.count() << " milliseconds" << std::endl;
+            // Print the duration in milliseconds
+            std::cout << "Time taken by function: " << duration.count() << " milliseconds" << std::endl;
 
             webSocket.sendBinary(IXPixelData);
-        } 
+
+        } else {
+            std::cerr << "Failed to create JPEG image" << std::endl;
+        }
+
+        // std::vector<uint8_t> png_output;
+        // if (create_png(pixelData, view_width, view_height, png_output)) {
+        //     std::string messagePrefix = "JOB_MESSAGE#RENDER#";
+        //     std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
+        //     png_output.insert(png_output.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
+        //     ix::IXWebSocketSendData IXPixelData(png_output);
+        //     stop = std::chrono::high_resolution_clock::now();
+
+        // // Calculate the duration in milliseconds
+        // duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+
+        // // Print the duration in milliseconds
+        // std::cout << "Time taken by function: " << duration.count() << " milliseconds" << std::endl;
+
+        //     webSocket.sendBinary(IXPixelData);
+        // } 
 
         // renderer.renderFrame(fb);
 	    // window.swapBuffers();	
