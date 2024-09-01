@@ -25,110 +25,12 @@
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXUserAgent.h>
 #include <ixwebsocket/IXWebSocketSendData.h>
-#include <png.h>
-#include <turbojpeg.h> 
-#include <cstdint>
-
+#include "PixelDataEncoder/PixelDataEncoder.h"
+#include "PixelDataEncoder/JPEGEncoder.h"
+#include "PixelDataEncoder/PNGEncoder.h"
 
 double getRadians(double value) {
     return M_PI * value / 180.0;
-}
-
-
-bool SaveJPEG(const std::vector<uint8_t>& pixels, int width, int height, int quality, std::vector<uint8_t>& jpegData)
-{
-    tjhandle _jpegCompressor = tjInitCompress();
-    if (_jpegCompressor == nullptr) {
-        std::cerr << "Failed to initialize jpeg compressor" << std::endl;
-        return false;
-    }
-
-    unsigned char* compressedImage = nullptr;
-    unsigned long compressedSize = 0;
-
-    if (tjCompress2(
-            _jpegCompressor,
-            (unsigned char*)pixels.data(),
-            width,
-            0, // pitch (0 = width * bytes per pixel)
-            height,
-            TJPF_RGB, // Pixel format
-            &compressedImage,
-            &compressedSize,
-            TJSAMP_444, // Subsampling
-            quality, // JPEG quality
-            TJFLAG_FASTDCT) != 0)
-    {
-        std::cerr << "Failed to compress image: " << tjGetErrorStr() << std::endl;
-        tjDestroy(_jpegCompressor);
-        return false;
-    }
-
-    // Copy data to std::vector
-    jpegData.assign(compressedImage, compressedImage + compressedSize);
-
-    // Clean up
-    tjFree(compressedImage);
-    tjDestroy(_jpegCompressor);
-
-    return true;
-}
-
-// Custom user write function to store PNG data into a vector
-void write_png_data_to_vector(png_structp png_ptr, png_bytep data, png_size_t length) {
-    std::vector<uint8_t>* p = (std::vector<uint8_t>*)png_get_io_ptr(png_ptr);
-    p->insert(p->end(), data, data + length);
-}
-
-// Function to create PNG image from pixel data vector
-bool create_png(const std::vector<uint8_t>& pixels, int width, int height, std::vector<uint8_t>& png_output) {
-    png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png) {
-        std::cerr << "Failed to create png write struct" << std::endl;
-        return false;
-    }
-
-    png_infop info = png_create_info_struct(png);
-    if (!info) {
-        png_destroy_write_struct(&png, nullptr);
-        std::cerr << "Failed to create png info struct" << std::endl;
-        return false;
-    }
-
-    if (setjmp(png_jmpbuf(png))) {
-        png_destroy_write_struct(&png, &info);
-        std::cerr << "Failed during png creation" << std::endl;
-        return false;
-    }
-
-    // Set custom write function
-    png_set_write_fn(png, &png_output, write_png_data_to_vector, nullptr);
-
-    // Set the header
-    png_set_IHDR(
-        png,
-        info,
-        width, height,
-        8,
-        PNG_COLOR_TYPE_RGB,
-        PNG_INTERLACE_NONE,
-        PNG_COMPRESSION_TYPE_DEFAULT,
-        PNG_FILTER_TYPE_DEFAULT
-    );
-    png_write_info(png, info);
-
-    // Allocate memory for rows of pointers to each row's data
-    std::vector<uint8_t*> row_pointers(height);
-    for (int y = 0; y < height; ++y) {
-        row_pointers[y] = (uint8_t*)&pixels[y * width * 3];
-    }
-
-    png_write_image(png, row_pointers.data());
-    png_write_end(png, nullptr);
-
-    png_destroy_write_struct(&png, &info);
-
-    return true;
 }
 
 int main(int argc, char **argv) {
@@ -253,9 +155,14 @@ int main(int argc, char **argv) {
     std::mutex m;
     std::unique_lock<std::mutex> lk(m);
 
-    
+    std::vector<uint8_t> pixelData(num_pixels * 3, 0);
 
-    while (!window.shouldClose()) {
+    JPEGEncoder encoderObject(75);
+    // PNGEncoder encoderObject;
+    PixelDataEncoder &pixelDataEncoder = encoderObject;
+
+    // while (!window.shouldClose()) {
+    while (true) {
         // window.pollEvents();
         // pt0.setFront(camParams.front);
         // pt0.setLookFrom(camParams.lookFrom);
@@ -280,7 +187,7 @@ int main(int argc, char **argv) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
         std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
 
-                start = std::chrono::high_resolution_clock::now();
+        start = std::chrono::high_resolution_clock::now();
 
         for (int y = view_height - 1; y >= 0; --y) {
             for (int x = 0; x < view_width; ++x) {
@@ -292,43 +199,19 @@ int main(int argc, char **argv) {
             }
         }
 
-        int quality = 75; // JPEG quality (1-100)
-        std::vector<uint8_t> jpegData;
-        if (SaveJPEG(pixelData, view_width, view_height, quality, jpegData)) {
+        std::vector<uint8_t> outputData;
+        if (pixelDataEncoder.encodePixelData(pixelData, view_width, view_height, outputData)) {
             std::string messagePrefix = "JOB_MESSAGE#RENDER#";
             std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
-            jpegData.insert(jpegData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
-            ix::IXWebSocketSendData IXPixelData(jpegData);
+            outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
+            ix::IXWebSocketSendData IXPixelData(outputData);
+
             stop = std::chrono::high_resolution_clock::now();
-
-            // Calculate the duration in milliseconds
             duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-
-            // Print the duration in milliseconds
             std::cout << "Time taken by function: " << duration.count() << " milliseconds" << std::endl;
 
             webSocket.sendBinary(IXPixelData);
-
-        } else {
-            std::cerr << "Failed to create JPEG image" << std::endl;
-        }
-
-        // std::vector<uint8_t> png_output;
-        // if (create_png(pixelData, view_width, view_height, png_output)) {
-        //     std::string messagePrefix = "JOB_MESSAGE#RENDER#";
-        //     std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
-        //     png_output.insert(png_output.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
-        //     ix::IXWebSocketSendData IXPixelData(png_output);
-        //     stop = std::chrono::high_resolution_clock::now();
-
-        // // Calculate the duration in milliseconds
-        // duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-
-        // // Print the duration in milliseconds
-        // std::cout << "Time taken by function: " << duration.count() << " milliseconds" << std::endl;
-
-        //     webSocket.sendBinary(IXPixelData);
-        // } 
+        } 
 
         // renderer.renderFrame(fb);
 	    // window.swapBuffers();	
