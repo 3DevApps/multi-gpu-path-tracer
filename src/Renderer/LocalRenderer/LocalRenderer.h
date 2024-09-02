@@ -6,12 +6,13 @@
 #include "Window.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include "../Renderer.h"
 
-class Renderer {
+class LocalRenderer : public Renderer {
 public:
-    Renderer(Window& window);
-    ~Renderer() = default;
-    void renderFrame(const uint8_t *frame);
+    LocalRenderer(Window& window);
+    ~LocalRenderer() = default;
+    void renderFrame(const uint8_t *frame) override;
 private:
     Window& window_;
     std::uint32_t width_;

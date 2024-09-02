@@ -11,8 +11,8 @@
 #include "material.h"
 #include "obj_loader.h"
 #include "triangle.h"
-#include "LocalRenderer/Window.h"
-#include "LocalRenderer/Renderer.h"
+#include "Renderer/LocalRenderer/Window.h"
+#include "Renderer/LocalRenderer/LocalRenderer.h"
 #include "cuda_utils.h"
 #include "bvh.h"
 
