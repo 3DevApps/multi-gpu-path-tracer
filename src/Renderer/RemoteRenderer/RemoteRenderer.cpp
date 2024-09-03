@@ -4,15 +4,11 @@ RemoteRenderer::RemoteRenderer(std::string& jobId, std::uint32_t view_width, std
     : jobId(jobId), view_width(view_width), view_height(view_height) {
     pixelData.resize(view_width * view_height * 3);
     
-    JPEGEncoder encoderObject(75);
-    // PNGEncoder encoderObject;
-    pixelDataEncoder = encoderObject;
+    // pixelDataEncoder = std::make_shared<PNGEncoder>();
+    pixelDataEncoder = std::make_shared<JPEGEncoder>(75);
 
     webSocket.setUrl(SERVER_URL + jobId);
-    // webSocket.setOnMessageCallback(std::bind(&RemoteRenderer::onMessage, this, std::placeholders::_1));
-    webSocket.setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
-        this->onMessage(msg);
-    });
+    webSocket.setOnMessageCallback(std::bind(&RemoteRenderer::onMessage, this, std::placeholders::_1));
     webSocket.start();
 }
 
@@ -20,11 +16,11 @@ RemoteRenderer::~RemoteRenderer() {
     webSocket.stop();
 }
 
-RemoteRenderer::addMessageListener(std::string eventName, LambdaFunction listener) {
+void RemoteRenderer::addMessageListener(std::string eventName, LambdaFunction listener) {
     eventListeners.try_emplace(eventName, listener);
 }
 
-RemoteRenderer::removeMessageListener(std::string eventName) {
+void RemoteRenderer::removeMessageListener(std::string eventName) {
     eventListeners.erase(eventName);
 }
 
@@ -52,14 +48,14 @@ void RemoteRenderer::renderFrame(const uint8_t *frame) {
         for (int x = 0; x < view_width; ++x) {
             int fbi = (y * view_width + x) * 3;
             int pdi = ((view_height - y - 1) * view_width + x) * 3;
-            pixelData[pdi] = fb[fbi];
-            pixelData[pdi + 1] = fb[fbi + 1];
-            pixelData[pdi + 2] = fb[fbi + 2];
+            pixelData[pdi] = frame[fbi];
+            pixelData[pdi + 1] = frame[fbi + 1];
+            pixelData[pdi + 2] = frame[fbi + 2];
         }
     }
 
     std::vector<uint8_t> outputData;
-    if (pixelDataEncoder.encodePixelData(pixelData, view_width, view_height, outputData)) {
+    if (pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData)) {
         std::string messagePrefix = "JOB_MESSAGE#RENDER#";
         std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
         outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());

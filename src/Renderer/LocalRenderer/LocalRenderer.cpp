@@ -2,7 +2,7 @@
 #include "LocalRenderer.h"
 #include "Utils.h"
 
-LocalRenderer::Renderer(Window& window)
+LocalRenderer::LocalRenderer(Window& window)
     : window_(window)
     , width_(window.getWidth())
     , height_(window.getHeight()) {

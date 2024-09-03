@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     camParams.front = make_float3(-0.26, 0.121, -0.9922);
 
     // Window window(view_width, view_height, "MultiGPU-PathTracer", camParams);
-    // LocalRenderer renderer(window);
+    // LocalRenderer remoteRenderer(window);
     RemoteRenderer remoteRenderer(args.jobId, view_width, view_height);
     Renderer &renderer = remoteRenderer;
 

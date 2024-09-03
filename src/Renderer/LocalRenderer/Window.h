@@ -9,7 +9,7 @@
 #include <string>
 #include <iostream>
 // #include "../obj_loader.h"
-#include "../CameraParams.h"
+#include "../../CameraParams.h"
 
 enum class MouseButton {
     Left,
