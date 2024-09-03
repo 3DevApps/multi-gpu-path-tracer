@@ -26,10 +26,11 @@ void RemoteRenderer::removeMessageListener(std::string eventName) {
 
 void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr& msg) {
     if (msg->type == ix::WebSocketMessageType::Message) {
-        std::string messageKey = msg->str.substr(0, msg->str.find("#"));
+        auto sepPos = msg->str.find("#");
+        std::string messageKey = msg->str.substr(0, sepPos);
         auto listener = eventListeners.find(messageKey);
         if (listener != eventListeners.end()) {
-            listener->second();
+            listener->second(msg->str.substr(sepPos + 1));
         }
     } 
     else if (msg->type == ix::WebSocketMessageType::Open)

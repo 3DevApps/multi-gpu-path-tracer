@@ -11,7 +11,7 @@
 
 class RemoteRenderer : public Renderer {
     public:
-        using LambdaFunction = std::function<void()>;
+        using LambdaFunction = std::function<void(std::string)>;
 
         RemoteRenderer(std::string& jobId, std::uint32_t view_width, std::uint32_t view_height);
         ~RemoteRenderer();

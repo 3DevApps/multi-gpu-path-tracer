@@ -31,6 +31,7 @@
 #include "ArgumentLoader.h"
 #include "Renderer/RemoteRenderer/RemoteRenderer.h"
 #include "Renderer/Renderer.h"
+#include "Renderer/RemoteRenderer/RemoteEventHandlers.h"
 
 double getRadians(double value) {
     return M_PI * value / 180.0;
@@ -58,6 +59,7 @@ int main(int argc, char **argv) {
     // Window window(view_width, view_height, "MultiGPU-PathTracer", camParams);
     // LocalRenderer remoteRenderer(window);
     RemoteRenderer remoteRenderer(args.jobId, view_width, view_height);
+    RemoteEventHandlers remoteEventHandlers(remoteRenderer, camParams);
     Renderer &renderer = remoteRenderer;
 
     MonitorThread monitor_thread_obj;
