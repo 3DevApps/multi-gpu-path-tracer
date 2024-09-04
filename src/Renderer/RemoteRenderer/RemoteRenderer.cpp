@@ -69,3 +69,7 @@ void RemoteRenderer::renderFrame(const uint8_t *frame) {
 bool RemoteRenderer::shouldStopRendering() {
     return stopRenderer;
 }
+
+void RemoteRenderer::send(const std::string& data) {
+    webSocket.send(data);
+}

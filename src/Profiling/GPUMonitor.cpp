@@ -1,4 +1,4 @@
-
+#include <sstream>
 #include "GPUMonitor.h"
 
 GPUMonitor::GPUMonitor() {
@@ -35,6 +35,19 @@ void GPUMonitor::logLatestStats() {
     std::cout << "-------------------------------------------------------------------------" << std::endl; 
 }
 
+std::string GPUMonitor::getLatestStats() {
+    std::ostringstream stats;
+    stats << "ID|Name|Mem Total (MB)|Mem Free (MB)|GPU Util (%)|Mem Util (%)";
+    for (int i = 0; i < device_count_; i++) {
+        stats << "#" << i << "|" << device_infos_[i].name << "|" <<
+            device_infos_[i].memory_info.total / 1000000 << "|" << 
+            device_infos_[i].memory_info.free / 1000000 << "|" << 
+            device_infos_[i].utilization.gpu << "|" <<
+            device_infos_[i].utilization.memory;
+    }
+    return stats.str();
+}
+
 GPUMonitor::~GPUMonitor() {
     NVML_RT_CALL(nvmlShutdown());
 }
@@ -44,6 +57,8 @@ void MonitorThread::operator()() {
     while (!shouldTerminate) {
         monitor.queryStats();
         monitor.logLatestStats();
+        std::string statsMessage = "JOB_MESSAGE#RENDER_STATS#" + monitor.getLatestStats();
+        renderer.send(statsMessage);
         std::this_thread::sleep_for( std::chrono::milliseconds(1000));
     }
 }

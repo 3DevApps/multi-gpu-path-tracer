@@ -62,7 +62,8 @@ int main(int argc, char **argv) {
     RemoteEventHandlers remoteEventHandlers(remoteRenderer, camParams);
     Renderer &renderer = remoteRenderer;
 
-    MonitorThread monitor_thread_obj;
+    // MonitorThread monitor_thread_obj();
+    MonitorThread monitor_thread_obj(renderer);
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
     // ----------------------------------------------------------------- //

@@ -14,6 +14,7 @@ public:
     ~LocalRenderer() = default;
     void renderFrame(const uint8_t *frame) override;
     bool shouldStopRendering() override;
+    void send(const std::string& data) override {};
 private:
     Window& window_;
     std::uint32_t width_;
