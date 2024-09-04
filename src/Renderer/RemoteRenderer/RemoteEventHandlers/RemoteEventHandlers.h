@@ -1,10 +1,10 @@
 #pragma once 
 
 #include <vector>
-#include "RemoteRenderer.h"
+#include "../RemoteRenderer.h"
 #include "EventHandler.h"
-#include "EventHandlers/MouseMoveEventHandler.h"
-#include "../../CameraParams.h"
+#include "MouseMoveEventHandler.h"
+#include "../../../CameraParams.h"
 
 class RemoteEventHandlers {
     public:

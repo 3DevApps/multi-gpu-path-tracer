@@ -41,6 +41,7 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr& msg) {
     {
         // Maybe SSL is not configured properly
         std::cout << "Connection error: " << msg->errorInfo.reason << std::endl;
+        stopRenderer = true;
     }
 }
 
@@ -63,4 +64,8 @@ void RemoteRenderer::renderFrame(const uint8_t *frame) {
         ix::IXWebSocketSendData IXPixelData(outputData);
         webSocket.sendBinary(IXPixelData);
     } 
+}
+
+bool RemoteRenderer::shouldStopRendering() {
+    return stopRenderer;
 }

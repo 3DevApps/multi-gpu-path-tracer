@@ -7,5 +7,5 @@ class PNGEncoder : public PixelDataEncoder {
     public:
         bool encodePixelData(const std::vector<uint8_t>& pixelData, const int width, const int height, std::vector<uint8_t>& outputData) override;
     private:
-        static void write_png_data_to_vector(png_structp png_ptr, png_bytep data, png_size_t length);
+        static void writePNGDataToVector(png_structp png_ptr, png_bytep data, png_size_t length);
 };

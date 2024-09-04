@@ -28,10 +28,8 @@ bool JPEGEncoder::encodePixelData(const std::vector<uint8_t>& pixelData, const i
         return false;
     }
 
-    // Copy data to std::vector
     outputData.assign(compressedImage, compressedImage + compressedSize);
 
-    // Clean up
     tjFree(compressedImage);
     tjDestroy(_jpegCompressor);
 

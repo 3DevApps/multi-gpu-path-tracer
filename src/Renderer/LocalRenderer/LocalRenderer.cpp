@@ -21,3 +21,9 @@ void LocalRenderer::renderFrame(const uint8_t *frame) {
     CheckedGLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)); 
     CheckedGLCall(glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 }
+
+bool LocalRenderer::shouldStopRendering() {
+    window_.swapBuffers();
+    window_.pollEvents();
+    return window_.shouldClose();
+}

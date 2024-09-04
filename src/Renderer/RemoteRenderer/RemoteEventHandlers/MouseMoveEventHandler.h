@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cmath>
-#include "../EventHandler.h"
+#include "EventHandler.h"
 
 class MouseMoveEventHandler: EventHandler {
     public:
@@ -60,5 +60,4 @@ class MouseMoveEventHandler: EventHandler {
         double getRadians(double value) {
             return M_PI * value / 180.0;
         }
-
 };

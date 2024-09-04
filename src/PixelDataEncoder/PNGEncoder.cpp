@@ -1,6 +1,6 @@
 #include "PNGEncoder.h"
 
-void PNGEncoder::write_png_data_to_vector(png_structp png_ptr, png_bytep data, png_size_t length) {
+void PNGEncoder::writePNGDataToVector(png_structp png_ptr, png_bytep data, png_size_t length) {
     std::vector<uint8_t>* p = (std::vector<uint8_t>*)png_get_io_ptr(png_ptr);
     p->insert(p->end(), data, data + length);
 }
@@ -25,10 +25,8 @@ bool PNGEncoder::encodePixelData(const std::vector<uint8_t>& pixelData, const in
         return false;
     }
 
-    // Set custom write function
-    png_set_write_fn(png, &outputData, PNGEncoder::write_png_data_to_vector, nullptr);
+    png_set_write_fn(png, &outputData, PNGEncoder::writePNGDataToVector, nullptr);
 
-    // Set the header
     png_set_IHDR(
         png,
         info,

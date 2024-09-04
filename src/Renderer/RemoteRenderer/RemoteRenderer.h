@@ -16,6 +16,7 @@ class RemoteRenderer : public Renderer {
         RemoteRenderer(std::string& jobId, std::uint32_t view_width, std::uint32_t view_height);
         ~RemoteRenderer();
         void renderFrame(const uint8_t *frame) override;
+        bool shouldStopRendering() override;
         void addMessageListener(std::string eventName, LambdaFunction listener);
         void removeMessageListener(std::string eventName);
     private:
@@ -27,6 +28,7 @@ class RemoteRenderer : public Renderer {
         std::uint32_t view_height;
         std::vector<uint8_t> pixelData;
         std::shared_ptr<PixelDataEncoder> pixelDataEncoder;
+        bool stopRenderer = false;
 
         void onMessage(const ix::WebSocketMessagePtr& msg);
 };

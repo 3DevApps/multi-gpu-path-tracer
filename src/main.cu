@@ -31,7 +31,7 @@
 #include "ArgumentLoader.h"
 #include "Renderer/RemoteRenderer/RemoteRenderer.h"
 #include "Renderer/Renderer.h"
-#include "Renderer/RemoteRenderer/RemoteEventHandlers.h"
+#include "Renderer/RemoteRenderer/RemoteEventHandlers/RemoteEventHandlers.h"
 
 double getRadians(double value) {
     return M_PI * value / 180.0;
@@ -121,9 +121,7 @@ int main(int argc, char **argv) {
     std::mutex m;
     std::unique_lock<std::mutex> lk(m);
 
-    // while (!window.shouldClose()) {
-    while (true) {
-        // window.pollEvents();
+    while (!renderer.shouldStopRendering()) {
         // pt0.setFront(camParams.front);
         // pt0.setLookFrom(camParams.lookFrom);
 
@@ -148,7 +146,6 @@ int main(int argc, char **argv) {
         std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
 
         renderer.renderFrame(fb);
-	    // window.swapBuffers();	
 	}
 
     monitor_thread_obj.safeTerminate();

@@ -13,6 +13,7 @@ public:
     LocalRenderer(Window& window);
     ~LocalRenderer() = default;
     void renderFrame(const uint8_t *frame) override;
+    bool shouldStopRendering() override;
 private:
     Window& window_;
     std::uint32_t width_;
