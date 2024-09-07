@@ -143,6 +143,4 @@ void Window::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos
         cos(getRadians(self->yaw)) * cos(getRadians(self->pitch)),
         sin(getRadians(self->pitch)), 
         sin(getRadians(self->yaw)) * cos(getRadians(self->pitch))));
-
-    // std::cout << self->camParams.front.x << " " << self->camParams.front.y << " " << self->camParams.front.z << std::endl;
 }
