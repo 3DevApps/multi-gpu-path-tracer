@@ -1,8 +1,8 @@
 
-#include "Renderer.h"
+#include "LocalRenderer.h"
 #include "Utils.h"
 
-Renderer::Renderer(Window& window)
+LocalRenderer::LocalRenderer(Window& window)
     : window_(window)
     , width_(window.getWidth())
     , height_(window.getHeight()) {
@@ -11,7 +11,7 @@ Renderer::Renderer(Window& window)
     CheckedGLCall(glGenFramebuffers(1, &fboId_));
 }
 
-void Renderer::renderFrame(const uint8_t *frame) {
+void LocalRenderer::renderFrame(const uint8_t *frame) {
     CheckedGLCall(glBindTexture(GL_TEXTURE_2D, texId_));
     CheckedGLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, frame));
 
@@ -20,4 +20,10 @@ void Renderer::renderFrame(const uint8_t *frame) {
 
     CheckedGLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)); 
     CheckedGLCall(glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+}
+
+bool LocalRenderer::shouldStopRendering() {
+    window_.swapBuffers();
+    window_.pollEvents();
+    return window_.shouldClose();
 }

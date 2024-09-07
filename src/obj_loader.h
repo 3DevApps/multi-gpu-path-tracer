@@ -35,7 +35,6 @@ std::vector<Triangle> obj_loader::load_triangles() {
         throw std::runtime_error(importer.GetErrorString());
     }
 
-    int num_materials = scene->mNumMaterials;
     std::vector<Triangle> triangles; 
     
     if (scene->HasMeshes()) {

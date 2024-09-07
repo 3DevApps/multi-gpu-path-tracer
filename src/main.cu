@@ -8,8 +8,8 @@
 #include "semaphore.h"
 #include <mutex>
 #include "obj_loader.h"
-#include "LocalRenderer/Window.h"
-#include "LocalRenderer/Renderer.h"
+#include "Renderer/LocalRenderer/Window.h"
+#include "Renderer/LocalRenderer/LocalRenderer.h"
 #include "cuda_utils.h"
 #include "Profiling/GPUMonitor.h"
 #include "DevicePathTracer.h"
@@ -21,12 +21,19 @@
 #include "HostScene.h"
 #include "Scheduling/TaskGenerator.h"
 #include <vector>
+#include "PixelDataEncoder/PixelDataEncoder.h"
+#include "PixelDataEncoder/JPEGEncoder.h"
+#include "PixelDataEncoder/PNGEncoder.h"
+#include "ArgumentLoader.h"
+#include "Renderer/RemoteRenderer/RemoteRenderer.h"
+#include "Renderer/Renderer.h"
+#include "Renderer/RemoteRenderer/RemoteEventHandlers/RemoteEventHandlers.h"
 
 double getRadians(double value) {
     return M_PI * value / 180.0;
 }
 
-int main() {
+int main(int argc, char **argv) {
     int view_width = 600;
     int view_height = 600;
     int num_pixels = view_width * view_height;
@@ -34,23 +41,24 @@ int main() {
     uint8_t *fb;
     checkCudaErrors(cudaMallocManaged((void **)&fb, fb_size));
 
-    // Load object
-    const char *file_path = "models/cornell-box.obj";
-    obj_loader loader(file_path);
-    CameraParams camParams;
-    camParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
-    camParams.front = make_float3(-0.26, 0.121, -0.9922);
+    ArgumentLoader argLoader(argc, argv);
+    auto args = argLoader.loadAndGetArguments();
+
+    obj_loader loader(args.filePath.c_str());
 
     HostScene hScene; 
     hScene.triangles = loader.load_triangles();
     hScene.cameraParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
     hScene.cameraParams.front = make_float3(-0.26, 0.121, -0.9922);
 
+    // Window window(view_width, view_height, "MultiGPU-PathTracer", hScene.cameraParams);
+    // LocalRenderer localRenderer(window);
+    RemoteRenderer remoteRenderer(args.jobId, view_width, view_height);
+    RemoteEventHandlers remoteEventHandlers(remoteRenderer, hScene.cameraParams);
+    Renderer &renderer = remoteRenderer;
 
-    Window window(view_width, view_height, "MultiGPU-PathTracer", hScene.cameraParams);
-    Renderer renderer(window);
-
-    MonitorThread monitor_thread_obj;
+    // MonitorThread monitor_thread_obj();
+    MonitorThread monitor_thread_obj(renderer);
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
     // ----------------------------------------------------------------- //
@@ -95,11 +103,7 @@ int main() {
     std::mutex m;
     std::unique_lock<std::mutex> lk(m);
 
-    
-
-    while (!window.shouldClose()) {
-        window.pollEvents();
-
+    while (!renderer.shouldStopRendering()) {
          // insert elements
         for (int i = 0; i < render_tasks.size(); i++) {
             queue.Produce(std::move(render_tasks[i]));
@@ -118,7 +122,6 @@ int main() {
         std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
 
         renderer.renderFrame(fb);
-	    window.swapBuffers();	
 	}
 
     monitor_thread_obj.safeTerminate();
