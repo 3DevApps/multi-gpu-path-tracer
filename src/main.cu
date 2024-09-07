@@ -21,10 +21,6 @@
 #include "HostScene.h"
 #include "Scheduling/TaskGenerator.h"
 #include <vector>
-#include <ixwebsocket/IXNetSystem.h>
-#include <ixwebsocket/IXWebSocket.h>
-#include <ixwebsocket/IXUserAgent.h>
-#include <ixwebsocket/IXWebSocketSendData.h>
 #include "PixelDataEncoder/PixelDataEncoder.h"
 #include "PixelDataEncoder/JPEGEncoder.h"
 #include "PixelDataEncoder/PNGEncoder.h"
