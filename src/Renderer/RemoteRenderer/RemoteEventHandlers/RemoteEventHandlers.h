@@ -4,7 +4,7 @@
 #include "../RemoteRenderer.h"
 #include "EventHandler.h"
 #include "MouseMoveEventHandler.h"
-#include "../../../CameraParams.h"
+#include "../../../HostScene.h"
 
 class RemoteEventHandlers {
     public:

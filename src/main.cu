@@ -50,12 +50,6 @@ int main(int argc, char **argv) {
 
     obj_loader loader(args.filePath.c_str());
 
-    // DevicePathTracer pt0(0, loader, view_width, view_height);
-    // DevicePathTracer pt1(1, loader, view_width, view_height);
-    CameraParams camParams;
-    camParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
-    camParams.front = make_float3(-0.26, 0.121, -0.9922);
-
     HostScene hScene; 
     hScene.triangles = loader.load_triangles();
     hScene.cameraParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
@@ -64,9 +58,8 @@ int main(int argc, char **argv) {
     // Window window(view_width, view_height, "MultiGPU-PathTracer", hScene.cameraParams);
     // LocalRenderer localRenderer(window);
     RemoteRenderer remoteRenderer(args.jobId, view_width, view_height);
-    RemoteEventHandlers remoteEventHandlers(remoteRenderer, camParams);
+    RemoteEventHandlers remoteEventHandlers(remoteRenderer, hScene.cameraParams);
     Renderer &renderer = remoteRenderer;
-
 
     // MonitorThread monitor_thread_obj();
     MonitorThread monitor_thread_obj(renderer);
