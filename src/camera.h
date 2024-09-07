@@ -23,8 +23,6 @@ public:
     float vfov = 45.0; //vertical field of view
 
     float3 background_color = make_float3(0.0, 0.0, 0.0);
-
-    float3 look_from = make_float3(-277.676, 157.279, 545.674);
     
     // float3 lookfrom = make_float3(-0.278, -0.8, 0.273);
     // float3 lookat = make_float3(-1.0, -2.0, -1.0);
@@ -33,7 +31,8 @@ public:
     
     float3 u, v, w; //orthonormal basis for the camera
 
-    __device__ void recalculate_camera_params() {
+    __device__ void recalculate_camera_params(float3 front, float3 look_from) {
+        lookat = look_from + front;
         aspect_ratio = float(image_width) / float(image_height);
         focal_length = length(look_from - lookat);
         float theta = vfov * M_PI / 180; 
@@ -48,16 +47,7 @@ public:
         horizontal = 2*half_width*u;
         vertical = 2*half_height*v;   
     }
-
-    __device__ void set_camera_front(float3 front) {
-        lookat = look_from + front;
-        recalculate_camera_params();
-    }
-
-    __device__ void set_camera_look_from(float3 lf) {
-        look_from = lf;
-        recalculate_camera_params();
-    }
+    
 
     /**
      * @brief Represents a camera in a 3D scene.
@@ -65,9 +55,7 @@ public:
      * The Camera class provides functionality to define the position, orientation, and field of view of a camera in a 3D scene.
      * It also allows for generating rays from the camera's position to specific points on the image plane.
      */
-    __device__ camera() {
-        recalculate_camera_params();     
-    }
+    __device__ camera() {}
     
     /**
      * @brief Calculates the color of a ray.
@@ -80,7 +68,8 @@ public:
      * @param local_rand_state The pointer to the random number generator state for the current thread.
      * @return The color of the ray.
      */
-    __device__ float3 ray_color(const ray& r, hitable_list **world, curandState *local_rand_state) {
+    __device__ float3 ray_color(const ray& r, hitable_list **world, float3 camFront, float3 camLookFrom, curandState* local_rand_state) {
+        recalculate_camera_params(camFront, camLookFrom);
         ray cur_ray = r;
         float3 cur_attenuation = make_float3(1.0, 1.0, 1.0);
         for(int i = 0; i < max_depth; i++) {

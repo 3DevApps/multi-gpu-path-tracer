@@ -16,9 +16,9 @@
 #include <chrono>
 #include <cmath>
 #include "SafeQueue.h"
-#include "GPUThread.h"
+#include "StreamThread.h"
 #include "helper_math.h"
-#include "CameraParams.h"
+#include "HostScene.h"
 #include "Scheduling/TaskGenerator.h"
 #include <vector>
 
@@ -37,14 +37,17 @@ int main() {
     // Load object
     const char *file_path = "models/cornell-box.obj";
     obj_loader loader(file_path);
-
-    // DevicePathTracer pt0(0, loader, view_width, view_height);
-    // DevicePathTracer pt1(1, loader, view_width, view_height);
     CameraParams camParams;
     camParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
     camParams.front = make_float3(-0.26, 0.121, -0.9922);
 
-    Window window(view_width, view_height, "MultiGPU-PathTracer", camParams);
+    HostScene hScene; 
+    hScene.triangles = loader.load_triangles();
+    hScene.cameraParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
+    hScene.cameraParams.front = make_float3(-0.26, 0.121, -0.9922);
+
+
+    Window window(view_width, view_height, "MultiGPU-PathTracer", hScene.cameraParams);
     Renderer renderer(window);
 
     MonitorThread monitor_thread_obj;
@@ -53,8 +56,8 @@ int main() {
     // ----------------------------------------------------------------- //
     // SafeQueue<RenderTask> queue;
     // RenderTask task;
-    // GPUThread t0(0, loader, view_width, view_height, queue, fb);
-    // GPUThread t1(1, loader, view_width, view_height, queue, fb);
+    // StreamThread t0(0, loader, view_width, view_height, queue, fb);
+    // StreamThread t1(1, loader, view_width, view_height, queue, fb);
     // std::thread gpu_0_thread(std::ref(t0));
     // std::thread gpu_1_thread(std::ref(t1));
     // ----------------------------------------------------------------- //
@@ -70,30 +73,16 @@ int main() {
     semaphore thread_semaphore(0);
     std::atomic_int completed_streams = 0;
 
-
-
-    cudaStream_t stream_0[num_streams_per_gpu];
-    cudaStream_t stream_1[num_streams_per_gpu];
-
-    cudaEvent_t event_0[num_streams_per_gpu];
-    cudaEvent_t event_1[num_streams_per_gpu];
-    for (int i = 0; i < num_streams_per_gpu; i++) {
-        cudaSetDevice(0);
-        cudaStreamCreate(&stream_0[i]);
-        cudaEventCreate(&event_0[i]);
-
-        cudaSetDevice(1);
-        cudaStreamCreate(&stream_1[i]);
-        cudaEventCreate(&event_1[i]);
-    }
-    GPUThread t0_0(0,stream_0[0], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t0_1(0,stream_0[1], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t0_2(0,stream_0[2], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t0_3(0,stream_0[3], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t1_0(1,stream_1[0], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t1_1(1,stream_1[1], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t1_2(1,stream_1[2], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
-    GPUThread t1_3(1,stream_1[3], loader, view_width, view_height, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, camParams);
+    DevicePathTracer devicePathTracerIdx0{0, view_width, view_height, hScene};
+    DevicePathTracer devicePathTracerIdx1{1, view_width, view_height, hScene};
+    StreamThread t0_0(0, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx0);
+    StreamThread t0_1(0, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx0);
+    StreamThread t0_2(0, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx0);
+    StreamThread t0_3(0, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx0);
+    StreamThread t1_0(1, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx1);
+    StreamThread t1_1(1, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx1);
+    StreamThread t1_2(1, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx1);
+    StreamThread t1_3(1, queue, fb, &thread_semaphore, &thread_cv, &completed_streams, hScene, devicePathTracerIdx1);
     std::thread gpu_0_thread_0(std::ref(t0_0));
     std::thread gpu_0_thread_1(std::ref(t0_1));
     std::thread gpu_0_thread_2(std::ref(t0_2));
@@ -110,11 +99,6 @@ int main() {
 
     while (!window.shouldClose()) {
         window.pollEvents();
-        // pt0.setFront(camParams.front);
-        // pt0.setLookFrom(camParams.lookFrom);
-
-        // pt1.setFront(camParams.front);
-        // pt1.setLookFrom(camParams.lookFrom);
 
          // insert elements
         for (int i = 0; i < render_tasks.size(); i++) {
@@ -131,7 +115,7 @@ int main() {
 
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-        // std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
+        std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
 
         renderer.renderFrame(fb);
 	    window.swapBuffers();	

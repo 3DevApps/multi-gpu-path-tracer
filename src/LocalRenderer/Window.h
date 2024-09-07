@@ -9,7 +9,7 @@
 #include <string>
 #include <iostream>
 // #include "../obj_loader.h"
-#include "../CameraParams.h"
+#include "../HostScene.h"
 
 enum class MouseButton {
     Left,
@@ -37,11 +37,11 @@ public:
 
     //public for static callbacks
     CameraParams& camParams;
-    bool firstMouse;
-    float lastX;
-    float lastY;
-    float pitch;
-    float yaw;
+    bool firstMouse = 0;
+    float lastX = 0;
+    float lastY = 0;
+    float pitch = 0;
+    float yaw = 0;
 
 private:
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
