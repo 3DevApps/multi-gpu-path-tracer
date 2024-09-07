@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <vector>
+#include "../Renderer/Renderer.h"
 
 #ifndef NVML_RT_CALL
 #define NVML_RT_CALL( call )                                                                                           \
@@ -37,6 +38,7 @@ public:
     void queryStats();
     void logLatestStats();
     ~GPUMonitor();
+    std::string getLatestStats();
 
 private:
     unsigned int device_count_;
@@ -45,12 +47,13 @@ private:
 
 class MonitorThread {
 public:
-    MonitorThread() {}
+    MonitorThread(Renderer &renderer) : renderer(renderer) {}
     void operator()();
     void safeTerminate();
 
 private:
     std::atomic_bool shouldTerminate = false;
+    Renderer &renderer;
 };
 
 
