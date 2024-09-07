@@ -65,7 +65,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int sample_per_pixel, camera **cam,hitable_list **world, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int sample_per_pixel, camera **cam,hitable_list **world, float3 camFront, float3 camLookFrom, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -77,7 +77,7 @@ __global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int s
         float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(max_x);
         float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(max_y);
         ray r = (*cam)->get_ray(u, v);
-        col += (*cam)->ray_color(r, world, &local_rand_state);
+        col += (*cam)->ray_color(r, world, camFront, camLookFrom, &local_rand_state);
     }
 
     float3 color_modifier;
@@ -122,34 +122,46 @@ __global__ void free_world(hitable **d_list, hitable_list **d_world, camera **d_
     delete *d_camera;    
 }
 
-__global__ void setCameraFront(camera ** cam, float3 front) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {   
-        (*cam)->set_camera_front(front);
-    }
-}
-
-__global__ void setCameraLookFrom(camera ** cam, float3 lookFrom) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {   
-        (*cam)->set_camera_look_from(lookFrom);
+__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        material* mat;
+        if (hTriangle.material_params.type == LAMBERTIAN) {
+            mat = new lambertian(hTriangle.material_params.color_ambient);
+        }
+        else if (hTriangle.material_params.type == METAL) {
+            mat = new metal(hTriangle.material_params.color_ambient, hTriangle.material_params.shininess);
+        }
+        else if (hTriangle.material_params.type == DIELECTRIC) {
+            mat = new dielectric(hTriangle.material_params.index_of_refraction);
+        }
+        else if (hTriangle.material_params.type == DIFFUSE_LIGHT) {
+            mat = new diffuse_light(hTriangle.material_params.color_diffuse);
+        } 
+        else {
+            // Use LAMBERTIAN by default
+            mat = new lambertian(hTriangle.material_params.color_ambient);
+        }
+        d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
     }
 }
 
 class DevicePathTracer {
 public:
-    DevicePathTracer(int device_idx, obj_loader &loader, int view_width, int view_height) 
-        : device_idx_{device_idx}, view_width_{view_width}, view_height_{view_height} {
+    DevicePathTracer(int device_idx, int view_width, int view_height, HostScene& hostScene) 
+        : device_idx_{device_idx}, view_width_{view_width}, view_height_{view_height}, hostScene_{hostScene} {
         cudaSetDevice(device_idx);
-        number_of_faces_ = loader.get_total_number_of_faces();
         int num_pixels = view_width_ * view_height_; // 
 
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, number_of_faces_ * sizeof(hitable *)));
-        loader.load_faces(scene_.d_list);
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene.triangles.size() * sizeof(hitable*))); 
+        for (int i = 0; i < hostScene.triangles.size(); i++) {
+            deviceLoadTriangle<<<1,1>>>(scene_.d_list, hostScene.triangles[i], i);
+        }
         checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
         checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
 
         checkCudaErrors(cudaMalloc((void **)&d_rand_state_, num_pixels*sizeof(curandState))); //
 
-        create_world<<<1,1>>>(scene_.d_world, scene_.d_camera, scene_.d_list, number_of_faces_);
+        create_world<<<1,1>>>(scene_.d_world, scene_.d_camera, scene_.d_list, hostScene.triangles.size());
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
 
@@ -166,31 +178,19 @@ public:
         dim3 threads(THREADS_PER_DIM_X_, THREADS_PER_DIM_Y_);
 
         cudaSetDevice(device_idx_);
-        render<<<blocks, threads>>>(
+        render<<<blocks, threads, 0, stream>>>(
             fb, task, 
             view_width_, view_height_,
             3, scene_.d_camera,
             scene_.d_world,
+            hostScene_.cameraParams.front,
+            hostScene_.cameraParams.lookFrom,
             d_rand_state_
         );
     }
 
     void waitForRenderTask() {
         cudaSetDevice(device_idx_);
-        checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());
-    }
-
-    void setFront(float3 front) {
-        cudaSetDevice(device_idx_);
-        setCameraFront<<<1,1>>>(scene_.d_camera, front);
-        checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());
-    }
-
-    void setLookFrom(float3 lookFrom) {
-        cudaSetDevice(device_idx_);
-        setCameraLookFrom<<<1,1>>>(scene_.d_camera, lookFrom);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
@@ -212,7 +212,8 @@ private:
     int number_of_faces_;
     const int THREADS_PER_DIM_X_ = 8;
     const int THREADS_PER_DIM_Y_ = 8;
-    Scene scene_{};
+    Scene scene_{};   
+    HostScene& hostScene_;
 };
 
 
