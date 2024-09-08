@@ -8,36 +8,28 @@
 class camera
 {
 public:
-    //TODO: some of them should be private i just dont like the ideology of private variables so u can decide
-    const interval hit_interval = interval(0.001f, FLT_MAX);
 
-    float3 origin; //camera position
-    float3 lower_left_corner; //lower left corner of the viewport
-    float3 horizontal; //viewport dimensions
-    float3 vertical; //viewport dimensions
-    int image_width = 600;
-    int image_height = 600;
-    float aspect_ratio; //width/height
-    int max_depth = 3; //Maximum nuber of bounces
-    float focal_length; //distance between the camera and the viewport
-    float vfov = 45.0; //vertical field of view
-
-    float3 background_color = make_float3(0.0, 0.0, 0.0);
-    
-    // float3 lookfrom = make_float3(-0.278, -0.8, 0.273);
-    // float3 lookat = make_float3(-1.0, -2.0, -1.0);
-    float3 lookat = make_float3(1.0, 0, 0);
-    float3 vup = make_float3(0.0, 1.0, 0.0);
-    
-    float3 u, v, w; //orthonormal basis for the camera
+    /**
+     * @brief Represents a camera in a 3D scene.
+     *
+     * The Camera class provides functionality to define the position, orientation, and field of view of a camera in a 3D scene.
+     * It also allows for generating rays from the camera's position to specific points on the image plane.
+     */
+    __device__ camera(
+        float verticalFieldOfView,
+        float horizontalFieldOfView, 
+        unsigned int recursionDepth) : 
+        verticalFieldOfView_{verticalFieldOfView},
+        horizontalFieldOfView_{horizontalFieldOfView},
+        recursionDepth_{recursionDepth} {}
 
     __device__ void recalculate_camera_params(float3 front, float3 look_from) {
         lookat = look_from + front;
-        aspect_ratio = float(image_width) / float(image_height);
         focal_length = length(look_from - lookat);
-        float theta = vfov * M_PI / 180; 
-        float half_height = tan(theta/2);
-        float half_width = aspect_ratio * half_height;
+        float theta_v = verticalFieldOfView_ * M_PI / 180; 
+        float half_height = tan(theta_v / 2);
+        float theta_h = horizontalFieldOfView_ * M_PI / 180;
+        float half_width = tan(theta_h / 2); 
         origin = look_from; 
         w = normalize(look_from - lookat);
         u = normalize(cross(vup, w));
@@ -47,15 +39,6 @@ public:
         horizontal = 2*half_width*u;
         vertical = 2*half_height*v;   
     }
-    
-
-    /**
-     * @brief Represents a camera in a 3D scene.
-     *
-     * The Camera class provides functionality to define the position, orientation, and field of view of a camera in a 3D scene.
-     * It also allows for generating rays from the camera's position to specific points on the image plane.
-     */
-    __device__ camera() {}
     
     /**
      * @brief Calculates the color of a ray.
@@ -72,7 +55,7 @@ public:
         recalculate_camera_params(camFront, camLookFrom);
         ray cur_ray = r;
         float3 cur_attenuation = make_float3(1.0, 1.0, 1.0);
-        for(int i = 0; i < max_depth; i++) {
+        for(int i = 0; i < recursionDepth_; i++) {
             hit_record rec;
             if ((*world)->hit(cur_ray, hit_interval, rec)) {
                 ray scattered;
@@ -85,13 +68,11 @@ public:
                 else {
                     cur_attenuation *= color_from_emission;
                     return cur_attenuation;
-                    
-                    // return make_float3(0.0,0.0,0.0);
                 }
             }
             else {
                 //background
-                return make_float3(0, 0, 0) * cur_attenuation;
+                return make_float3(1, 1, 1) * cur_attenuation; 
                 }
             }
         return make_float3(0.0,0.0,0.0); // exceeded recursion
@@ -110,4 +91,20 @@ public:
     __device__ ray get_ray(float u, float v) {
         return ray(origin, lower_left_corner + u * horizontal + v * vertical - origin);
     }
+
+private:
+    const interval hit_interval = interval(0.001f, FLT_MAX);
+    float3 origin; //camera position
+    float3 lower_left_corner; //lower left corner of the viewport
+    float3 horizontal; //viewport dimensions
+    float3 vertical; //viewport dimensions
+    unsigned int recursionDepth_;
+    float focal_length; //distance between the camera and the viewport
+    float verticalFieldOfView_ = 45.0; //vertical field of view
+    float horizontalFieldOfView_ = 45.0;
+    float3 background_color = make_float3(0.0, 0.0, 0.0);
+    float3 lookat = make_float3(1.0, 0, 0);
+    float3 vup = make_float3(0.0, 1.0, 0.0);
+    
+    float3 u, v, w; //orthonormal basis for the camera
 };

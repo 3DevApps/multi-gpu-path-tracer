@@ -11,13 +11,13 @@ Renderer::Renderer(Window& window)
     CheckedGLCall(glGenFramebuffers(1, &fboId_));
 }
 
-void Renderer::renderFrame(const uint8_t *frame) {
+void Renderer::renderFrame(const uint8_t *frame, int width, int height) {
     CheckedGLCall(glBindTexture(GL_TEXTURE_2D, texId_));
-    CheckedGLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, frame));
+    CheckedGLCall(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, frame));
 
     CheckedGLCall(glBindFramebuffer(GL_READ_FRAMEBUFFER, fboId_));
     CheckedGLCall(glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texId_, 0));
 
     CheckedGLCall(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)); 
-    CheckedGLCall(glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_, GL_COLOR_BUFFER_BIT, GL_NEAREST));
+    CheckedGLCall(glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST));
 }

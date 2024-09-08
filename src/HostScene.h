@@ -7,6 +7,8 @@
 struct CameraParams {
     float3 front;
     float3 lookFrom;
+    float verticalFieldOfView = 45.0f;
+    float horizontalFieldOfView = 45.0f;
 };
 
 // Materials supported by the obj loader
@@ -34,5 +36,5 @@ struct Triangle {
 
 struct HostScene {
     std::vector<Triangle> triangles;
-    CameraParams cameraParams;
+    CameraParams& cameraParams;
 };

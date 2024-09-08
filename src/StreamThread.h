@@ -1,4 +1,6 @@
 
+#pragma once
+
 #include <nvml.h>
 #include <iostream>
 #include <chrono>
@@ -8,52 +10,82 @@
 #include "semaphore.h"
 #include "DevicePathTracer.h"
 #include "SafeQueue.h"
-
+#include <thread>
 
 
 class StreamThread {
 public:
-    StreamThread(int device_idx, SafeQueue<RenderTask> &queue, uint8_t *fb, semaphore* thread_semaphore, std::condition_variable* thread_cv, std::atomic_int* completed_streams, HostScene& hostScene, DevicePathTracer& devicePathTracer):
+    StreamThread(int device_idx, SafeQueue<RenderTask> &queue, semaphore* thread_semaphore, std::condition_variable* thread_cv, std::atomic_int* completed_streams, HostScene& hostScene, std::shared_ptr<DevicePathTracer> devicePathTracer):
+        deviceIdx{device_idx},
         devicePathTracer{devicePathTracer},
         queue{queue},
-        fb{fb},
         thread_semaphore{thread_semaphore},
         thread_cv{thread_cv},
         completed_streams{completed_streams} {
         
         cudaSetDevice(device_idx);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+
         cudaStreamCreate(&stream);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+
         cudaEventCreate(&event);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());   
     }
 
-    void operator()() {
-        RenderTask task;
-        thread_semaphore->acquire();
-        while(true){
-            while(queue.Consume(task)) {
-                // Process the message
-                devicePathTracer.renderTaskAsync(task, fb, stream);
-                cudaStreamSynchronize(stream);
-            }
-            completed_streams->fetch_add(1);
-            thread_cv->notify_all();
-            thread_semaphore->acquire();
-        }
+    ~StreamThread() {
+        shouldTerminate = true;
+        if(thread_.joinable()) {
+            thread_.join();
+        } 
     }
 
+    void start() {
+        thread_ = std::thread(&StreamThread::threadMain, this);
+    }
 
-    void safeTerminate() {
+    void finish() {
         shouldTerminate = true;
     }
 
+    void join() {
+        if(thread_.joinable()) {
+            thread_.join();
+        } 
+    }
+
+    void threadMain() {
+        RenderTask task;
+        while(!shouldTerminate){
+            // std::cout << "consuming... , shouldTerminate: " << shouldTerminate << std::endl;
+            while(!shouldTerminate && queue.ConsumeSync(task)) {
+                // std::cout << "rendering..." << std::endl;
+                devicePathTracer->renderTaskAsync(task, stream);
+                devicePathTracer->synchronizeStream(stream);
+                completed_streams->fetch_add(1);
+                thread_cv->notify_all();
+                if (shouldTerminate) {
+                    std::cout << "thread ending" << std::endl;
+                    return;
+                }
+            }
+            // std::cout << "look again..., shouldTerminate: " << shouldTerminate << std::endl;
+        }
+        std::cout << "thread ending" << std::endl;
+    }
+
 private:
+    int deviceIdx;
     std::atomic_bool shouldTerminate = false;
-    DevicePathTracer devicePathTracer;
+    std::shared_ptr<DevicePathTracer> devicePathTracer;
     SafeQueue<RenderTask> &queue;
-    uint8_t *fb;
     semaphore* thread_semaphore;
     std::condition_variable* thread_cv;
     std::atomic_int* completed_streams;
     cudaEvent_t event;
     cudaStream_t stream;
+    std::thread thread_{};
 };

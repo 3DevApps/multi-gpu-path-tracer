@@ -11,7 +11,7 @@ class Renderer {
 public:
     Renderer(Window& window);
     ~Renderer() = default;
-    void renderFrame(const uint8_t *frame);
+    void renderFrame(const uint8_t *frame, int width, int height);
 private:
     Window& window_;
     std::uint32_t width_;

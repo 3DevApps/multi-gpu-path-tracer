@@ -13,12 +13,9 @@
 #include <memory.h>
 #include "HostScene.h"
 
-class obj_loader
-{
+class obj_loader {
 public:
-    obj_loader(const char* path) : file_path(path) {};
-    std::vector<Triangle> load_triangles();
-    const char* file_path;
+    std::vector<Triangle> load_triangles(const char*);
 };
 
 float3 convertToFloat3(aiVector3D &v) {
@@ -26,7 +23,7 @@ float3 convertToFloat3(aiVector3D &v) {
 }
 
 
-std::vector<Triangle> obj_loader::load_triangles() {
+std::vector<Triangle> obj_loader::load_triangles(const char* file_path) {
     Assimp::Importer importer;
 
     const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
