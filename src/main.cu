@@ -7,8 +7,8 @@
 #include <curand_kernel.h>
 #include "semaphore.h"
 #include <mutex>
-#include "LocalRenderer/Window.h"
-#include "LocalRenderer/Renderer.h"
+#include "Renderer/LocalRenderer/Window.h"
+#include "Renderer/LocalRenderer/LocalRenderer.h"
 #include "cuda_utils.h"
 #include "Profiling/GPUMonitor.h"
 #include "DevicePathTracer.h"
@@ -20,84 +20,45 @@
 #include "HostScene.h"
 #include "Scheduling/TaskGenerator.h"
 #include <vector>
+#include "PixelDataEncoder/PixelDataEncoder.h"
+#include "PixelDataEncoder/JPEGEncoder.h"
+#include "PixelDataEncoder/PNGEncoder.h"
+#include "ArgumentLoader.h"
+#include "Renderer/RemoteRenderer/RemoteRenderer.h"
+#include "Renderer/Renderer.h"
+#include "Renderer/RemoteRenderer/RemoteEventHandlers/RemoteEventHandlers.h"
 #include "RendererConfig.h"
 #include "Framebuffer.h"
 #include "RenderManager.h"
 
-int main() {
-    RendererConfig config;
+int main(int argc, char** argv) {
+    ArgumentLoader argLoader(argc, argv);
+    auto args = argLoader.loadAndGetArguments();
+
+    RendererConfig config; 
     HostScene hScene(config.objPath, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
     Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", hScene.cameraParams);
-    Renderer renderer(window);
-
-    MonitorThread monitor_thread_obj;
-    std::thread monitor_thread(std::ref(monitor_thread_obj));
-
-    auto framebuffer = std::make_shared<Framebuffer>(config.resolution);
     RenderManager manager(config, hScene);
 
+    LocalRenderer localRenderer(window);
+    RemoteRenderer remoteRenderer(args.jobId, config.resolution.width, config.resolution.height);
+    RemoteEventHandlers remoteEventHandlers(remoteRenderer, hScene.cameraParams);
+    Renderer &renderer = localRenderer;
 
-    int samples = 0;
-    while (!window.shouldClose()) {
-        window.pollEvents();
+    MonitorThread monitor_thread_obj(renderer);
+    std::thread monitor_thread(std::ref(monitor_thread_obj));
 
-        switch (window.newEvent_) {
-            case 1: {
-                manager.setResolution({900, 900});
-                window.newEvent_ = false;
-                break;
-            }
-            case 2: {
-                manager.setGpuAndStreamNumber(1, 6);
-                window.newEvent_ = false;
-                break;
-            }
-            case 3: {
-                manager.setSamplesPerPixel(samples += 10);
-                window.newEvent_ = false;
-                break;
-            }
-            case 4: {
-                manager.setRecursionDepth(100);
-                std::cout << "recursion depth: 100" << std::endl;
-                // devicePathTracerIdx0.setRecursionDepth(100);
-                // devicePathTracerIdx1.setRecursionDepth(100);
-                break;
-            }
-            case 5: {
-                std::cout << "obj changes to 2 cubes" << std::endl;
-                auto s = std::string("models/cubes2.obj");
-                hScene.setObjPath(s);
-                hScene.setCameraLookFrom(make_float3(0, 0, 0));
-                break;
-            }
-            case 6: {
-                // std::cout << "verical field of view changed to 80" << std::endl;
-                // hScene.cameraParams.verticalFieldOfView = 80.0f;
-                // devicePathTracerIdx0.reloadCamera();
-                // devicePathTracerIdx1.reloadCamera();
-                // break;
-            }
-            // case 7: {
-            //     std::cout << "thread block size changed to 12 x 12" << std::endl;
-            //     devicePathTracerIdx0.setThreadBlockSize({12, 12});
-            //     devicePathTracerIdx0.setThreadBlockSize({12, 12});
-            //     break;
-            // }
-            default: {}
-        }
-        window.newEvent_ = 0;
+    while (!renderer.shouldStopRendering()) {
 
         auto start = std::chrono::high_resolution_clock::now();
-
         manager.renderFrame();
-
         auto stop = std::chrono::high_resolution_clock::now();
+
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
         std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
 
-        renderer.renderFrame(manager.getCurrentFrame(), manager.getCurrentFrameWidth(), manager.getCurrentFrameHeight());
-	    window.swapBuffers(); 	
+        renderer.renderFrame(manager.getCurrentFrame());
+	    window.swapBuffers(); 	        
 	}
 
     manager.reset();

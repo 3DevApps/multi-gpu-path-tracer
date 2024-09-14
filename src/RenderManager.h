@@ -7,8 +7,6 @@
 #include <curand_kernel.h>
 #include "semaphore.h"
 #include <mutex>
-#include "LocalRenderer/Window.h"
-#include "LocalRenderer/Renderer.h"
 #include "cuda_utils.h"
 #include "Profiling/GPUMonitor.h"
 #include "DevicePathTracer.h"
