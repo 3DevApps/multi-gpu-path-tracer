@@ -15,7 +15,7 @@
 
 class StreamThread {
 public:
-    StreamThread(int device_idx, SafeQueue<RenderTask> &queue, semaphore* thread_semaphore, std::condition_variable* thread_cv, std::atomic_int* completed_streams, HostScene& hostScene, std::shared_ptr<DevicePathTracer> devicePathTracer):
+    StreamThread(int device_idx, SafeQueue<RenderTask> &queue, semaphore* thread_semaphore, std::condition_variable* thread_cv, std::atomic_int* completed_streams, std::shared_ptr<DevicePathTracer> devicePathTracer):
         deviceIdx{device_idx},
         devicePathTracer{devicePathTracer},
         queue{queue},
@@ -60,7 +60,6 @@ public:
     void threadMain() {
         RenderTask task;
         while(!shouldTerminate){
-            // std::cout << "consuming... , shouldTerminate: " << shouldTerminate << std::endl;
             while(!shouldTerminate && queue.ConsumeSync(task)) {
                 // std::cout << "rendering..." << std::endl;
                 devicePathTracer->renderTaskAsync(task, stream);
@@ -72,9 +71,7 @@ public:
                     return;
                 }
             }
-            // std::cout << "look again..., shouldTerminate: " << shouldTerminate << std::endl;
         }
-        std::cout << "thread ending" << std::endl;
     }
 
 private:

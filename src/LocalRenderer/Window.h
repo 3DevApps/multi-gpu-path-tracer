@@ -8,7 +8,6 @@
 #include <functional>
 #include <string>
 #include <iostream>
-// #include "../obj_loader.h"
 #include "../HostScene.h"
 
 enum class MouseButton {

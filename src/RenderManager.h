@@ -7,7 +7,6 @@
 #include <curand_kernel.h>
 #include "semaphore.h"
 #include <mutex>
-#include "obj_loader.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
 #include "cuda_utils.h"
@@ -25,15 +24,13 @@
 #include "Framebuffer.h"
 
 
-class RenderManager { 
+class RenderManager : PrimitivesObserver { 
 public:
-    RenderManager(RendererConfig &config, CameraParams &camParams) : hScene_{{}, camParams}, lk_{m_} {
-        hScene_.triangles = loader_.load_triangles(config.objPath.c_str());
-        hScene_.cameraParams.verticalFieldOfView = config.verticalFieldOfView;
+        RenderManager(RendererConfig &config, HostScene &hScene) : hScene_{hScene}, lk_{m_} {
+        hScene_.registerPrimitivesObserver(this);
 
         streamsPerGpu_ = config.streamsPerGpu;
         gpuNumber_ = config.gpuNumber;
-
         
         samplesPerPixel_ = config.samplesPerPixel;
         recursionDepth_ = config.recursionDepth;
@@ -42,6 +39,10 @@ public:
         renderTasks_ = taskGen_.generateEqualTasks(config.gpuNumber * config.streamsPerGpu, config.resolution.width, config.resolution.height);
         framebuffer_ = std::make_shared<Framebuffer>(config.resolution);
         setup();
+    }
+
+    ~RenderManager() {
+        hScene_.removePrimitivesObserver(this);
     }
 
     void reset() {
@@ -81,7 +82,6 @@ public:
                     &threadSemaphore_, 
                     &threadCv_, 
                     &completedStreams_, 
-                    hScene_, 
                     devicePathTracers_[i]
                 ));
                 streamThreads_[i][j]->start();
@@ -119,13 +119,13 @@ public:
     void setRecursionDepth(unsigned int depth) {
         recursionDepth_ = depth;
         for (const auto & dpt : devicePathTracers_) {
-            dpt->setSamplesPerPixel(depth);
+            dpt->setSamplesPerPixel(depth); // workkkkkkkkkkk
         }
     }
 
-    void setVFOV(unsigned int vfov) {
+    void reloadWorld() {
         for (const auto & dpt : devicePathTracers_) {
-            dpt->setSamplesPerPixel(vfov);
+            dpt->reloadWorld();
         }
     }
 
@@ -153,9 +153,12 @@ public:
         return framebuffer_->getResolution().height;
     }
 
+    void updatePrimitives() {
+        reloadWorld();
+    }
+
 private:
     std::vector<std::shared_ptr<DevicePathTracer>> devicePathTracers_{};
-    obj_loader loader_{};
     TaskGenerator taskGen_{};
     SafeQueue<RenderTask> queue_{};
     std::condition_variable threadCv_{};
@@ -164,7 +167,7 @@ private:
     std::shared_ptr<Framebuffer> framebuffer_;
     int gpuNumber_;
     int streamsPerGpu_;
-    HostScene hScene_; 
+    HostScene& hScene_; 
     std::mutex m_;
     std::unique_lock<std::mutex> lk_;
     std::vector<RenderTask> renderTasks_{};

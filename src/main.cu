@@ -7,7 +7,6 @@
 #include <curand_kernel.h>
 #include "semaphore.h"
 #include <mutex>
-#include "obj_loader.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
 #include "cuda_utils.h"
@@ -27,18 +26,15 @@
 
 int main() {
     RendererConfig config;
-
-    CameraParams camParams;
-    camParams.lookFrom = make_float3(0, 0, 0);
-    camParams.front = make_float3(-0.26, 0.121, -0.9922);
-    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", camParams);
+    HostScene hScene(config.objPath, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
+    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", hScene.cameraParams);
     Renderer renderer(window);
 
     MonitorThread monitor_thread_obj;
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
     auto framebuffer = std::make_shared<Framebuffer>(config.resolution);
-    RenderManager manager(config, camParams);
+    RenderManager manager(config, hScene);
 
 
     int samples = 0;
@@ -69,11 +65,10 @@ int main() {
                 break;
             }
             case 5: {
-                // std::cout << "obj changes to 2 cubes" << std::endl;
-                // file_path = "models/cubes2.obj";
-                // hScene.triangles = loader.load_triangles(file_path);
-                // devicePathTracerIdx0.reloadWorld();
-                // devicePathTracerIdx1.reloadWorld();
+                std::cout << "obj changes to 2 cubes" << std::endl;
+                auto s = std::string("models/cubes2.obj");
+                hScene.setObjPath(s);
+                hScene.setCameraLookFrom(make_float3(0, 0, 0));
                 break;
             }
             case 6: {

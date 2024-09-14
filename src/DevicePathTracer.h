@@ -9,7 +9,6 @@
 #include "hitable.h"
 #include "camera.h"
 #include "material.h"
-#include "obj_loader.h"
 #include "triangle.h"
 #include "LocalRenderer/Window.h"
 #include "LocalRenderer/Renderer.h"
@@ -67,7 +66,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,hitable_list **world, float3 camFront, float3 camLookFrom, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,hitable_list **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -79,7 +78,7 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
         float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(res.width);
         float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(res.height);
         ray r = (*cam)->get_ray(u, v);
-        col += (*cam)->ray_color(r, world, camFront, camLookFrom, &local_rand_state);
+        col += (*cam)->ray_color(r, world, camParams, recursionDepth, &local_rand_state);
     }
 
     float3 color_modifier;
@@ -114,13 +113,9 @@ __global__ void create_world(hitable_list **d_world, hitable **d_list, int d_lis
     }
 }
 
-__global__ void create_camera(
-        camera **d_camera, 
-        float verticalFieldOfView,
-        float horizontalFieldOfView, 
-        unsigned int recursionDepth) {
+__global__ void create_camera(camera **d_camera) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                       
-        *d_camera = new camera(verticalFieldOfView, horizontalFieldOfView, recursionDepth);
+        *d_camera = new camera();
     }
 }
 
@@ -200,8 +195,8 @@ public:
             samplesPerPixel_,
             scene_.d_camera,
             scene_.d_world,
-            hostScene_.cameraParams.front,
-            hostScene_.cameraParams.lookFrom,
+            hostScene_.cameraParams,
+            recursionDepth_,
             d_rand_state_
         );
     }
@@ -230,11 +225,7 @@ public:
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
 
-        create_camera<<<1,1>>>(
-            scene_.d_camera, 
-            hostScene_.cameraParams.verticalFieldOfView,
-            hostScene_.cameraParams.horizontalFieldOfView,
-            recursionDepth_);
+        create_camera<<<1,1>>>(scene_.d_camera);
     }
 
 
@@ -293,7 +284,6 @@ public:
 
     void setRecursionDepth(unsigned int recursionDepth) {
         recursionDepth_ = recursionDepth;
-        reloadCamera();
     }
 
     void setThreadBlockSize(dim3 threadBlockSize) {
