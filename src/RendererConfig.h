@@ -16,10 +16,10 @@ struct RendererConfig {
     unsigned int gpuNumber = 2;   
     unsigned int streamsPerGpu = 5;
     Resolution resolution{400, 400}; 
-    SchedulingAlgorithmType algorithmType = BASIC_SCHEDULING;
-    dim3 threadBlockSize{8, 8};
-    float verticalFieldOfView = 45.0f; 
-    float horizontalFieldOfView = 45.0f; 
+    SchedulingAlgorithmType algorithmType = BASIC_SCHEDULING; // TODO: add support for different algorithms
+    dim3 threadBlockSize{8, 8}; 
+    float vfov = 45.0f; 
+    float hfov = 45.0f; 
     float3 cameraLookFromVec{0.0f, 0.0f, 0.0f};
     float3 cameraFrontVec{1.0f, 0.0f, 0.0f};
 };

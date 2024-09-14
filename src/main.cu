@@ -4,19 +4,19 @@
 #include <iostream>
 #include <float.h>
 #include <fstream>
-#include <curand_kernel.h>
+// #include <curand_kernel.h>
 #include "semaphore.h"
 #include <mutex>
 #include "Renderer/LocalRenderer/Window.h"
 #include "Renderer/LocalRenderer/LocalRenderer.h"
-#include "cuda_utils.h"
+// #include "cuda_utils.h"
 #include "Profiling/GPUMonitor.h"
 #include "DevicePathTracer.h"
 #include <chrono>
 #include <cmath>
 #include "SafeQueue.h"
 #include "StreamThread.h"
-#include "helper_math.h"
+// #include "helper_math.h"
 #include "HostScene.h"
 #include "Scheduling/TaskGenerator.h"
 #include <vector>
@@ -39,6 +39,20 @@ int main(int argc, char** argv) {
     HostScene hScene(config.objPath, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
     Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", hScene.cameraParams);
     RenderManager manager(config, hScene);
+    /*
+    changing parameters:
+    manager.setSamplesPerPixel(30);
+    manager.setRecursionDepth(5);
+    manager.setGpuAndStreamNumber(1, 6);
+    manager.setResolution({900, 900}); // TODO: make rendered frame resolution independent from window size
+    manager.setThreadBlockSize({16, 16});
+
+    hScene.loadTriangles("path/to/obj");
+    hScene.setVFOV(60.0f);
+    hScene.setHFOV(60.0f);
+    hScene.setCameraLookFrom(make_float3(1, 1, 1));
+    hScene.setCameraFront(make_float3(1, 1, 1));
+    */
 
     LocalRenderer localRenderer(window);
     RemoteRenderer remoteRenderer(args.jobId, config.resolution.width, config.resolution.height);

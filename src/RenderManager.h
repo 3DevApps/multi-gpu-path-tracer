@@ -117,7 +117,13 @@ public:
     void setRecursionDepth(unsigned int depth) {
         recursionDepth_ = depth;
         for (const auto & dpt : devicePathTracers_) {
-            dpt->setSamplesPerPixel(depth); // workkkkkkkkkkk
+            dpt->setRecursionDepth(depth); 
+        }
+    }
+
+    void setThreadBlockSize(dim3 threadBlockSize) {
+        for (const auto & dpt : devicePathTracers_) {
+            dpt->setThreadBlockSize(threadBlockSize); 
         }
     }
 
@@ -129,7 +135,6 @@ public:
 
     void renderFrame() {
         for (int i = 0; i < renderTasks_.size(); i++) {
-            // std::cout << "created render task: " << renderTasks_[i].width << " " << renderTasks_[i].height << " " << renderTasks_[i].offset_x << " " << renderTasks_[i].offset_y << std::endl;
             queue_.Produce(std::move(renderTasks_[i]));
         }
 

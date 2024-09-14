@@ -61,13 +61,11 @@ public:
         RenderTask task;
         while(!shouldTerminate){
             while(!shouldTerminate && queue.ConsumeSync(task)) {
-                // std::cout << "rendering..." << std::endl;
                 devicePathTracer->renderTaskAsync(task, stream);
                 devicePathTracer->synchronizeStream(stream);
                 completed_streams->fetch_add(1);
                 thread_cv->notify_all();
                 if (shouldTerminate) {
-                    std::cout << "thread ending" << std::endl;
                     return;
                 }
             }

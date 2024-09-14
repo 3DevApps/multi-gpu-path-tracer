@@ -5,6 +5,7 @@
 #include "material.h"
 #include "interval.h"
 #include "bvh.h"
+#include "HostScene.h"
 
 /**
 * @brief Represents a camera in a 3D scene.
