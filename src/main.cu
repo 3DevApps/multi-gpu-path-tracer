@@ -51,11 +51,11 @@ int main(int argc, char **argv) {
     hScene.cameraParams.lookFrom = make_float3(-277.676, 157.279, 545.674);
     hScene.cameraParams.front = make_float3(-0.26, 0.121, -0.9922);
 
-    // Window window(view_width, view_height, "MultiGPU-PathTracer", hScene.cameraParams);
-    // LocalRenderer localRenderer(window);
-    RemoteRenderer remoteRenderer(args.jobId, view_width, view_height);
-    RemoteEventHandlers remoteEventHandlers(remoteRenderer, hScene.cameraParams);
-    Renderer &renderer = remoteRenderer;
+    Window window(view_width, view_height, "MultiGPU-PathTracer", hScene.cameraParams);
+    LocalRenderer localRenderer(window);
+    // RemoteRenderer remoteRenderer(args.jobId, view_width, view_height);
+    // RemoteEventHandlers remoteEventHandlers(remoteRenderer, hScene.cameraParams);
+    Renderer &renderer = localRenderer;
 
     // MonitorThread monitor_thread_obj();
     MonitorThread monitor_thread_obj(renderer);
