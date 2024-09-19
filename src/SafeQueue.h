@@ -104,7 +104,6 @@ public:
 		});
 
 		finish_processing = false;
-
 	}
 
 };

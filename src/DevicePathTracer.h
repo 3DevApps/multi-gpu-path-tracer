@@ -9,12 +9,13 @@
 #include "hitable.h"
 #include "camera.h"
 #include "material.h"
-#include "obj_loader.h"
 #include "triangle.h"
 #include "Renderer/LocalRenderer/Window.h"
 #include "Renderer/LocalRenderer/LocalRenderer.h"
 #include "cuda_utils.h"
 #include "bvh.h"
+#include "RendererConfig.h"
+#include "Framebuffer.h"
 
 struct RenderTask {
     int width;
@@ -24,9 +25,9 @@ struct RenderTask {
 };
 
 struct Scene {
-    hitable **d_list;
-    bvh_node **d_world;
-    camera **d_camera;
+    hitable **d_list = nullptr;
+    bvh_node **d_world = nullptr;
+    camera **d_camera = nullptr;
 };
 
 /**
@@ -65,19 +66,19 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int sample_per_pixel, camera **cam,bvh_node **world, float3 camFront, float3 camLookFrom, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,bvh_node **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
-    int pixel_index = (task.offset_y + j) * max_x + (task.offset_x + i);
+    int pixel_index = (task.offset_y + j) * res.width + (task.offset_x + i);
     curandState local_rand_state = rand_state[pixel_index];
     //Antialiasing
     float3 col = make_float3(0, 0, 0);
     for (int s=0; s<sample_per_pixel; s++) {
-        float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(max_x);
-        float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(max_y);
+        float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(res.width);
+        float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(res.height);
         ray r = (*cam)->get_ray(u, v);
-        col += (*cam)->ray_color(r, world, camFront, camLookFrom, &local_rand_state);
+        col += (*cam)->ray_color(r, world, camParams, recursionDepth, &local_rand_state);
     }
 
     float3 color_modifier;
@@ -106,22 +107,40 @@ __global__ void render(uint8_t *fb, RenderTask task, int max_x, int max_y, int s
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(bvh_node **d_world, camera **d_camera, hitable **d_list, int d_list_size) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {  
+__global__ void create_world(hitable_list **d_world, bvh_node **d_list, int d_list_size) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                 
         curandState local_rand_state;
         curand_init(1984, 0, 0, &local_rand_state);                     
-        *d_world  = new bvh_node(d_list, 0, d_list_size, &local_rand_state);
+        *d_world  = new bvh_node(d_list, 0, d_list_size, &local_rand_state);      
+    }
+}
+
+__global__ void create_camera(camera **d_camera) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                       
         *d_camera = new camera();
     }
 }
 
-__global__ void free_world(hitable **d_list, bvh_node **d_world, camera **d_camera, int d_list_size) {
-    for (int i=0; i < d_list_size; i++) {
-        delete d_list[i];
+__global__ void free_world(hitable **d_list, bvh_node **d_world, int d_list_size) {
+    for (int i = 0; i < d_list_size; i++) {
+        if (d_list[i]) {
+            delete d_list[i];
+            d_list[i] = nullptr;
+        }
     }
 
-    delete *d_world;
-    delete *d_camera;    
+    if (*d_world) {
+        delete *d_world; 
+        *d_world = nullptr;
+    }
+}
+
+__global__ void free_camera(camera **d_camera) {
+    if (*d_camera) {
+        delete *d_camera;
+        *d_camera = nullptr;
+    }
+        
 }
 
 __global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index) {
@@ -149,44 +168,37 @@ __global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int ind
 
 class DevicePathTracer {
 public:
-    DevicePathTracer(int device_idx, int view_width, int view_height, HostScene& hostScene) 
-        : device_idx_{device_idx}, view_width_{view_width}, view_height_{view_height}, hostScene_{hostScene} {
-        cudaSetDevice(device_idx);
-        int num_pixels = view_width_ * view_height_; // 
-
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene.triangles.size() * sizeof(hitable*))); 
-        for (int i = 0; i < hostScene.triangles.size(); i++) {
-            deviceLoadTriangle<<<1,1>>>(scene_.d_list, hostScene.triangles[i], i);
-        }
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh_node *)));
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
-
-        checkCudaErrors(cudaMalloc((void **)&d_rand_state_, num_pixels*sizeof(curandState))); //
-
-        create_world<<<1,1>>>(scene_.d_world, scene_.d_camera, scene_.d_list, hostScene.triangles.size());
-        checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());
-
-        dim3 blocks(view_width_ / THREADS_PER_DIM_X_ + 1, view_height / THREADS_PER_DIM_Y_ + 1);
-        dim3 threads(THREADS_PER_DIM_X_, THREADS_PER_DIM_Y_);
-
-        render_init<<<blocks, threads>>>(view_width, view_height, d_rand_state_);
-        checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());
+    DevicePathTracer(
+            int device_idx, 
+            unsigned int samplesPerPixel,
+            unsigned int recursionDepth,
+            dim3 threadBlockSize,
+            HostScene& hostScene,
+            std::shared_ptr<Framebuffer> framebuffer) : 
+            device_idx_{device_idx},
+            samplesPerPixel_{samplesPerPixel},
+            recursionDepth_{recursionDepth},
+            hostScene_{hostScene},
+            threadBlockSize_{threadBlockSize}, 
+            framebuffer_{framebuffer} {
+        reloadWorld();
+        reloadCamera();
+        setFramebuffer(framebuffer_);
     }
 
-    void renderTaskAsync(RenderTask &task, uint8_t *fb,cudaStream_t stream) {
-        dim3 blocks(task.width / THREADS_PER_DIM_X_ + 1, task.height / THREADS_PER_DIM_Y_ + 1);
-        dim3 threads(THREADS_PER_DIM_X_, THREADS_PER_DIM_Y_);
+    void renderTaskAsync(RenderTask &task, cudaStream_t stream) {
+        dim3 blocks(task.width / threadBlockSize_.x + 1, task.height / threadBlockSize_.y + 1);
 
         cudaSetDevice(device_idx_);
-        render<<<blocks, threads, 0, stream>>>(
-            fb, task, 
-            view_width_, view_height_,
-            3, scene_.d_camera,
+        render<<<blocks, threadBlockSize_, 0, stream>>>(
+            framebuffer_->getPtr(), 
+            task, 
+            framebuffer_->getResolution(),
+            samplesPerPixel_,
+            scene_.d_camera,
             scene_.d_world,
-            hostScene_.cameraParams.front,
-            hostScene_.cameraParams.lookFrom,
+            hostScene_.cameraParams,
+            recursionDepth_,
             d_rand_state_
         );
     }
@@ -197,25 +209,114 @@ public:
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
+    void synchronizeStream(cudaStream_t stream) {
+        cudaSetDevice(device_idx_);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaStreamSynchronize(stream));
+    }
+
+
+    // to be called when camera parameters change
+    void reloadCamera() {
+        cudaSetDevice(device_idx_);
+        if (scene_.d_camera == nullptr) {
+            checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
+        } 
+
+        free_camera<<<1, 1>>>(scene_.d_camera);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+
+        create_camera<<<1,1>>>(scene_.d_camera);
+    }
+
+
+    // To be called when scene triangles change
+    void reloadWorld() {
+        cudaSetDevice(device_idx_);
+
+        if (scene_.d_list != nullptr && scene_.d_world != nullptr) {
+            // free previouse device pointer
+            free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, hostScene_.triangles.size());
+            checkCudaErrors(cudaGetLastError());
+            checkCudaErrors(cudaDeviceSynchronize());
+
+            checkCudaErrors(cudaFree(scene_.d_list));
+            checkCudaErrors(cudaFree(scene_.d_world));
+            scene_.d_world = nullptr;
+            scene_.d_list = nullptr;
+        }
+
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(hitable*)));
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh_node *)));
+
+        
+        for (int i = 0; i < hostScene_.triangles.size(); i++) {
+            deviceLoadTriangle<<<1, 1>>>(scene_.d_list, hostScene_.triangles[i], i);
+            checkCudaErrors(cudaGetLastError());
+            checkCudaErrors(cudaDeviceSynchronize());
+        }
+
+        create_world<<<1,1>>>(scene_.d_world, scene_.d_list, hostScene_.triangles.size());
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+    }
+
+    void setFramebuffer(std::shared_ptr<Framebuffer> framebuffer) {
+        framebuffer_ = framebuffer;
+
+        cudaSetDevice(device_idx_);
+        int num_pixels = framebuffer_->getPixelCount();
+        if (d_rand_state_) {
+            checkCudaErrors(cudaFree(d_rand_state_));
+            d_rand_state_ = nullptr;
+        }  
+
+        checkCudaErrors(cudaMalloc((void **)&d_rand_state_, num_pixels * sizeof(curandState)));
+        dim3 blocks(framebuffer_->getResolution().width / threadBlockSize_.x + 1, framebuffer_->getResolution().height / threadBlockSize_.y + 1);
+
+        render_init<<<blocks, threadBlockSize_>>>(framebuffer_->getResolution().width, framebuffer_->getResolution().height, d_rand_state_);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+    }
+
+    void setSamplesPerPixel(unsigned int samplesPerPixel) {
+        samplesPerPixel_ = samplesPerPixel;
+    }
+
+    void setRecursionDepth(unsigned int recursionDepth) {
+        recursionDepth_ = recursionDepth;
+    }
+
+    void setThreadBlockSize(dim3 threadBlockSize) {
+        threadBlockSize_ = threadBlockSize;
+    }
+
     ~DevicePathTracer() {
         cudaSetDevice(device_idx_);
-        free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, scene_.d_camera, number_of_faces_);
+        free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, number_of_faces_);
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+
+        free_camera<<<1, 1>>>(scene_.d_camera);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
 private:
     int device_idx_;
-    int view_width_;
-    int view_height_;
+    // Resolution resolution_;
     dim3 blocks_;
     dim3 threads_;
-    curandState *d_rand_state_;
+    curandState *d_rand_state_ = nullptr;
     int number_of_faces_;
-    const int THREADS_PER_DIM_X_ = 8;
-    const int THREADS_PER_DIM_Y_ = 8;
+    dim3 threadBlockSize_;
     Scene scene_{};   
     HostScene& hostScene_;
+    unsigned int samplesPerPixel_;
+    unsigned int recursionDepth_;
+    // uint8_t *fb_;
+    std::shared_ptr<Framebuffer> framebuffer_;
 };
 
 

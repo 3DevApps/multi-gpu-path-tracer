@@ -7,10 +7,11 @@ class TaskGenerator
 {
 public:
     TaskGenerator(int width, int height) : width_{width}, height_{height} {}
+    TaskGenerator() {}
 
     //TODO: Maybe square tasks are faster or something cus of warp size
 
-    void generateTasks(int num_tasks,std::vector<RenderTask> &tasks) {
+    void generateTasks(int num_tasks, std::vector<RenderTask> &tasks) {
         int task_width = width_ / num_tasks;
         std::cout << "Task width: " << task_width << std::endl;
         exit(0);
@@ -39,6 +40,22 @@ public:
                 tasks.push_back({task_width, task_height, task_width*i, task_height*j});
             }
         }
+    }
+
+    std::vector<RenderTask> generateEqualTasks(int task_count, int width, int height) {
+        int task_width = width / task_count;
+        std::vector<RenderTask> tasks;
+
+        for (int i = 0; i < task_count - 1; i++) {
+            tasks.push_back({task_width, height, i * task_width, 0});
+        } 
+        tasks.push_back({width - (task_count - 1) * task_width, height, (task_count - 1) * task_width, 0});
+        return tasks;
+    }
+
+    void setRes(int width, int height) {
+        width_ = width;
+        height_ = height;
     }
 
 private:
