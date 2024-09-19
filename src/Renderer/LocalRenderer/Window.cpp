@@ -96,8 +96,6 @@ void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) 
 void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     Window* self = (Window*)glfwGetWindowUserPointer(window);
     const float cameraSpeed = 0.5f;
-
-    // std::cout << self->camParams.lookFrom.x << " " << self->camParams.lookFrom.y << " " << self->camParams.lookFrom.z << std::endl;
     
     if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
         self->camParams.lookFrom += cameraSpeed * self->camParams.front;
@@ -107,6 +105,20 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
         self->camParams.lookFrom -= normalize(cross(self->camParams.front, make_float3(0, 1, 0))) * cameraSpeed;
     if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
         self->camParams.lookFrom += normalize(cross(self->camParams.front, make_float3(0, 1, 0))) * cameraSpeed;
+    if (key == GLFW_KEY_X && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 1;
+    if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 2;
+    if (key == GLFW_KEY_V && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 3;
+    if (key == GLFW_KEY_B && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 4;
+    if (key == GLFW_KEY_N && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 5;
+    if (key == GLFW_KEY_M && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 6;
+    if (key == GLFW_KEY_L && (action == GLFW_PRESS || action == GLFW_REPEAT))
+        self->newEvent_ = 7;
 }
 
 float getRadians(float rad) {

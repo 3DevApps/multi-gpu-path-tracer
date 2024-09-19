@@ -8,7 +8,6 @@
 #include <functional>
 #include <string>
 #include <iostream>
-// #include "../obj_loader.h"
 #include "../../HostScene.h"
 
 enum class MouseButton {
@@ -34,6 +33,7 @@ public:
     std::uint32_t getWidth() const;
     std::uint32_t getHeight() const;
     bool getMouseButton(MouseButton button) const;
+    bool newEvent();
 
     //public for static callbacks
     CameraParams& camParams;
@@ -41,7 +41,8 @@ public:
     float lastX = 0;
     float lastY = 0;
     float pitch = 0;
-    float yaw = 0;
+    float yaw = 0;    
+    int newEvent_ = 0;
 
 private:
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
@@ -52,4 +53,5 @@ private:
     std::vector<std::function<void(float)>> scroll_callbacks_;
     std::uint32_t width_ = 0u;
     std::uint32_t height_ = 0u;
+
 };
