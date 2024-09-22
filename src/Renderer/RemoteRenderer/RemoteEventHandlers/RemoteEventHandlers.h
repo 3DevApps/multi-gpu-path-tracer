@@ -4,12 +4,17 @@
 #include "../RemoteRenderer.h"
 #include "EventHandler.h"
 #include "MouseMoveEventHandler.h"
+#include "RenderManagerEventHander.h"
+#include "KeyboardEventHandler.h"
 #include "../../../HostScene.h"
+#include "../../../RenderManager.h"
 
 class RemoteEventHandlers {
     public:
-        RemoteEventHandlers(RemoteRenderer &remoteRenderer, CameraParams& camParams) {
-            addEventHandler<MouseMoveEventHandler>(remoteRenderer, camParams);
+        RemoteEventHandlers(RemoteRenderer &remoteRenderer, RenderManager& manager, HostScene& hScene) {
+            addEventHandler<MouseMoveEventHandler>(remoteRenderer, hScene.cameraParams);
+            addEventHandler<RenderManagerEventHander>(remoteRenderer, manager, hScene);
+            addEventHandler<KeyboardEventHandler>(remoteRenderer, hScene);
         };
         
         template <typename T, typename... Args>

@@ -92,6 +92,18 @@ public:
             framebuffer_->getResolution().height);
     }
 
+    void setGpuNumber(int gpuNumber) {
+        reset();
+        gpuNumber_ = gpuNumber;
+        setup();
+    }
+
+    void setStreamsPerGpu(int streamsPerGpu) {
+        reset();
+        streamsPerGpu_ = streamsPerGpu;
+        setup();
+    }
+
     void setGpuAndStreamNumber(int gpuNumber, int streamsPerGpu) {
         reset();
         gpuNumber_ = gpuNumber;

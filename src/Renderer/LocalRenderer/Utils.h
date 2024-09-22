@@ -1,5 +1,8 @@
 
 #pragma once
+
+#ifdef USE_LOCAL_RENDERER
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -33,3 +36,5 @@ void printShaderInfoLog(GLint const shader) {
 		delete [] infoLog;
 	}
 }
+
+#endif
