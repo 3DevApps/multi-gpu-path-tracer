@@ -35,6 +35,7 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr& msg) {
     } 
     else if (msg->type == ix::WebSocketMessageType::Open)
     {
+        webSocket.send("JOB_MESSAGE#NOTIFICATION#SUCCESS#JOB_INIT#Job has started!");
         std::cout << "Connection established" << std::endl;
     }
     else if (msg->type == ix::WebSocketMessageType::Error)
