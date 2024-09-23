@@ -107,7 +107,7 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable_list **d_world, bvh_node **d_list, int d_list_size) {
+__global__ void create_world(bvh_node **d_world, hitable **d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                 
         curandState local_rand_state;
         curand_init(1984, 0, 0, &local_rand_state);                     

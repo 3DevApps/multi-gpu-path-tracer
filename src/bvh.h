@@ -10,7 +10,7 @@
 class bvh_node : public hitable {
     public:
         __device__ bvh_node(hitable **list, int start, int end, curandState* local_rand_state) {
-            printf("start: %d, end: %d\n", start, end);
+            printf("start: %d, mid: %d, end: %d\n", start, start + size/2, end);
             int axis = int(curand_uniform(local_rand_state) * (2+0.999999));
             int size = end - start;
             if (size == 1) {
@@ -23,7 +23,6 @@ class bvh_node : public hitable {
                 // sort_hitables(list, start, end, axis);
                 quicksort(list, start, end, axis);
                 printf("sorted\n");
-                printf("start: %d, end: %d\n", start, start + size/2);
                 left = new bvh_node(list, start, start + size/2, local_rand_state);
                 printf("left\n");
                 right = new bvh_node(list, start + size/2, end, local_rand_state);
@@ -50,6 +49,7 @@ class bvh_node : public hitable {
         int pivot = start + (end - start) / 2;
         int left = start;
         int right = end-1;
+        
         while (left <= right){
             if (axis == 0){
                 while (list[left]->bbox.x.min < list[pivot]->bbox.x.min) left++;
@@ -69,9 +69,9 @@ class bvh_node : public hitable {
                 right--;
             }
         }
+        printf("start: %d, left: %d, right: %d, end: %d\n", start, left, right, end);
         quicksort(list, start, right, axis);
         quicksort(list, left, end, axis);
-    
     }
     __device__ void sort_hitables(hitable **list, int start,int end,int axis){
         int size = end - start;
