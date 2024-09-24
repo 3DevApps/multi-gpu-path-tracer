@@ -32,10 +32,11 @@
 #endif
 
 int main(int argc, char** argv) {
-    ArgumentLoader argLoader(argc, argv);
-    auto args = argLoader.loadAndGetArguments();
-
     RendererConfig config; 
+
+    ArgumentLoader argLoader(argc, argv);
+    argLoader.loadArguments(config);
+
     HostScene hScene(config, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
     RenderManager manager(config, hScene);
     /*
@@ -58,7 +59,7 @@ int main(int argc, char** argv) {
     LocalRenderer localRenderer(window);
     Renderer &renderer = localRenderer;
     #else
-    RemoteRenderer remoteRenderer(args.jobId, config);
+    RemoteRenderer remoteRenderer(config.jobId, config);
     RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene);
     Renderer &renderer = remoteRenderer;
     #endif

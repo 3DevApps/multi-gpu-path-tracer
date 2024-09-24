@@ -46,7 +46,7 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr& msg) {
     }
 }
 
-void RemoteRenderer::renderFrame(const uint8_t *frame) {
+std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame) {
     int view_width = config.resolution.width;
     int view_height = config.resolution.height;
 
@@ -65,7 +65,15 @@ void RemoteRenderer::renderFrame(const uint8_t *frame) {
     }
 
     std::vector<uint8_t> outputData;
-    if (pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData)) {
+    if (!pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData)){
+        outputData.clear();
+    }
+    return outputData;
+}
+
+void RemoteRenderer::renderFrame(const uint8_t *frame) {
+    std::vector<uint8_t> outputData = processFrame(frame);
+    if (!outputData.empty()) {
         std::string messagePrefix = "JOB_MESSAGE#RENDER#";
         std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
         outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());

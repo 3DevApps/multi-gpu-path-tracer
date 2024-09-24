@@ -13,6 +13,7 @@ enum SchedulingAlgorithmType {
 };
 
 struct RendererConfig {
+    std::string jobId = "0";
     unsigned int samplesPerPixel = 20; 
     unsigned int recursionDepth = 3; 
     std::string objPath = "models/cornell-box.obj"; 

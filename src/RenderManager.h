@@ -56,8 +56,8 @@ public:
             }
         }
 
-        devicePathTracers_ = {};
         streamThreads_ = {};
+        devicePathTracers_ = {};
     }
 
     void setup() {
@@ -92,27 +92,27 @@ public:
             framebuffer_->getResolution().height);
     }
 
-    void setGpuNumber(int gpuNumber) {
+    void restartAndUpdateParams() {
         reset();
-        gpuNumber_ = gpuNumber;
-        config_.gpuNumber = gpuNumber;
+        gpuNumber_ = config_.gpuNumber;
+        streamsPerGpu_ = config_.streamsPerGpu;
         setup();
+    }
+
+    void setGpuNumber(int gpuNumber) {
+        config_.gpuNumber = gpuNumber;
+        shouldRestart = true;
     }
 
     void setStreamsPerGpu(int streamsPerGpu) {
-        reset();
-        streamsPerGpu_ = streamsPerGpu;
         config_.streamsPerGpu = streamsPerGpu;
-        setup();
+        shouldRestart = true;
     }
 
     void setGpuAndStreamNumber(int gpuNumber, int streamsPerGpu) {
-        reset();
-        gpuNumber_ = gpuNumber;
-        streamsPerGpu_ = streamsPerGpu;
         config_.gpuNumber = gpuNumber;
         config_.streamsPerGpu = streamsPerGpu;
-        setup();
+        shouldRestart = true;
     }
 
     void setResolution(Resolution res) {
@@ -154,6 +154,11 @@ public:
     }
 
     void renderFrame() {
+        if (shouldRestart) {
+            restartAndUpdateParams();
+            shouldRestart = false;
+        }
+
         for (int i = 0; i < renderTasks_.size(); i++) {
             queue_.Produce(std::move(renderTasks_[i]));
         }
@@ -199,4 +204,5 @@ private:
     unsigned int samplesPerPixel_;
     dim3 threadBlockSize_;
     RendererConfig& config_;
+    bool shouldRestart = false;
 };

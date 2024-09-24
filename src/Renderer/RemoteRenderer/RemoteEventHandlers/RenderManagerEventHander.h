@@ -3,6 +3,7 @@
 #include <cmath>
 #include "EventHandler.h"
 #include "../../../RenderManager.h"
+#include "../../../PixelDataEncoder/PNGEncoder.h"
 
 class RenderManagerEventHander: EventHandler {
     public:
@@ -36,8 +37,10 @@ class RenderManagerEventHander: EventHandler {
                 unsigned int width = std::stoi(parsedRawData.substr(0, sepPos));
                 unsigned int height = std::stoi(parsedRawData.substr(sepPos+1));
                 manager.setResolution({width, height});
-            } else if (command == "NEW_FILE_UPLOADED") {
-                hScene.reloadScene();
+            } else if (command == "LOAD_UPLOADED_SCENE") {
+                hScene.loadUploadedScene();
+            } else if (command == "DOWNLOAD_SCENE_SNAPSHOT") {
+                // TODO: use processFrame from RemoteRenderer and send the data
             }
         };
         
@@ -48,4 +51,5 @@ class RenderManagerEventHander: EventHandler {
     private:
         RenderManager& manager;
         HostScene& hScene;
+        PNGEncoder pngEncoder;
 };

@@ -55,8 +55,9 @@ public:
         triangles = loadTriangles(config.objPath.c_str());
     }
 
-    void reloadScene() {
-        triangles = loadTriangles(config.objPath.c_str());
+    void loadUploadedScene() {
+        std::string objPath = "../files/f" + config.jobId + ".obj";
+        triangles = loadTriangles(objPath.c_str());
         notifyPrimitivesObservers();
     }
 

@@ -16,6 +16,7 @@ class RemoteRenderer : public Renderer {
 
         RemoteRenderer(std::string& jobId, RendererConfig& config);
         ~RemoteRenderer();
+        std::vector<uint8_t> processFrame(const uint8_t *frame);
         void renderFrame(const uint8_t *frame) override;
         void send(const std::string& data) override;
         bool shouldStopRendering() override;
