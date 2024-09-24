@@ -8,12 +8,13 @@
 #include "../Renderer.h"
 #include "../../PixelDataEncoder/PixelDataEncoder.h"
 #include "../../PixelDataEncoder/JPEGEncoder.h"
+#include "../../RendererConfig.h"
 
 class RemoteRenderer : public Renderer {
     public:
         using LambdaFunction = std::function<void(std::string)>;
 
-        RemoteRenderer(std::string& jobId, std::uint32_t view_width, std::uint32_t view_height);
+        RemoteRenderer(std::string& jobId, RendererConfig& config);
         ~RemoteRenderer();
         void renderFrame(const uint8_t *frame) override;
         void send(const std::string& data) override;
@@ -30,6 +31,7 @@ class RemoteRenderer : public Renderer {
         std::vector<uint8_t> pixelData;
         std::shared_ptr<PixelDataEncoder> pixelDataEncoder;
         bool stopRenderer = false;
+        RendererConfig& config;
 
         void onMessage(const ix::WebSocketMessagePtr& msg);
 };

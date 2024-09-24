@@ -1,5 +1,8 @@
 #pragma once
 
+#include <curand_kernel.h>
+#include "helper_math.h"
+
 struct Resolution {
     unsigned int width;
     unsigned int height;

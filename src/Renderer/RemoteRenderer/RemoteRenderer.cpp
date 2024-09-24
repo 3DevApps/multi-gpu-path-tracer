@@ -1,8 +1,8 @@
 #include "RemoteRenderer.h"
 
-RemoteRenderer::RemoteRenderer(std::string& jobId, std::uint32_t view_width, std::uint32_t view_height)
-    : jobId(jobId), view_width(view_width), view_height(view_height) {
-    pixelData.resize(view_width * view_height * 3);
+RemoteRenderer::RemoteRenderer(std::string& jobId, RendererConfig& config)
+    : jobId(jobId), config(config) {
+    pixelData.resize(config.resolution.width * config.resolution.height * 3);
     
     // pixelDataEncoder = std::make_shared<PNGEncoder>();
     pixelDataEncoder = std::make_shared<JPEGEncoder>(75);
@@ -47,6 +47,13 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr& msg) {
 }
 
 void RemoteRenderer::renderFrame(const uint8_t *frame) {
+    int view_width = config.resolution.width;
+    int view_height = config.resolution.height;
+
+    if (pixelData.size() != view_width * view_height * 3) {
+        pixelData.resize(view_width * view_height * 3);
+    }
+
     for (int y = view_height - 1; y >= 0; --y) {
         for (int x = 0; x < view_width; ++x) {
             int fbi = (y * view_width + x) * 3;

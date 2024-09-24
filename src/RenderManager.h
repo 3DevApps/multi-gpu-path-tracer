@@ -24,7 +24,7 @@
 
 class RenderManager : PrimitivesObserver { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene) : hScene_{hScene}, lk_{m_} {
+        RenderManager(RendererConfig &config, HostScene &hScene) : config_{config}, hScene_{hScene}, lk_{m_} {
         hScene_.registerPrimitivesObserver(this);
 
         streamsPerGpu_ = config.streamsPerGpu;
@@ -95,12 +95,14 @@ public:
     void setGpuNumber(int gpuNumber) {
         reset();
         gpuNumber_ = gpuNumber;
+        config_.gpuNumber = gpuNumber;
         setup();
     }
 
     void setStreamsPerGpu(int streamsPerGpu) {
         reset();
         streamsPerGpu_ = streamsPerGpu;
+        config_.streamsPerGpu = streamsPerGpu;
         setup();
     }
 
@@ -108,11 +110,14 @@ public:
         reset();
         gpuNumber_ = gpuNumber;
         streamsPerGpu_ = streamsPerGpu;
+        config_.gpuNumber = gpuNumber;
+        config_.streamsPerGpu = streamsPerGpu;
         setup();
     }
 
     void setResolution(Resolution res) {
         framebuffer_->setResolution(res);
+        config_.resolution = res;
         for (const auto & dpt : devicePathTracers_) {
             dpt->setFramebuffer(framebuffer_);
         }
@@ -121,6 +126,7 @@ public:
 
     void setSamplesPerPixel(unsigned int samples) {
         samplesPerPixel_ = samples;
+        config_.samplesPerPixel = samples;
         for (const auto & dpt : devicePathTracers_) {
             dpt->setSamplesPerPixel(samples);
         }
@@ -128,12 +134,14 @@ public:
 
     void setRecursionDepth(unsigned int depth) {
         recursionDepth_ = depth;
+        config_.recursionDepth = depth;
         for (const auto & dpt : devicePathTracers_) {
             dpt->setRecursionDepth(depth); 
         }
     }
 
     void setThreadBlockSize(dim3 threadBlockSize) {
+        config_.threadBlockSize = threadBlockSize;
         for (const auto & dpt : devicePathTracers_) {
             dpt->setThreadBlockSize(threadBlockSize); 
         }
@@ -190,4 +198,5 @@ private:
     unsigned int recursionDepth_;
     unsigned int samplesPerPixel_;
     dim3 threadBlockSize_;
+    RendererConfig& config_;
 };

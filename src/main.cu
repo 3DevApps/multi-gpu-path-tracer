@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
     LocalRenderer localRenderer(window);
     Renderer &renderer = localRenderer;
     #else
-    RemoteRenderer remoteRenderer(args.jobId, config.resolution.width, config.resolution.height);
+    RemoteRenderer remoteRenderer(args.jobId, config);
     RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene);
     Renderer &renderer = remoteRenderer;
     #endif
