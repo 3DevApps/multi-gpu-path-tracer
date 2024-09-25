@@ -92,7 +92,12 @@ public:
             framebuffer_->getResolution().height);
     }
 
-    void restartAndUpdateParams() {
+    void restartAndUpdatePathTracerParamsIfNeeded() {
+        if (!shouldUpdatePathTracerParams) {
+            return;
+        }
+        shouldUpdatePathTracerParams = false;
+        
         reset();
         gpuNumber_ = config_.gpuNumber;
         streamsPerGpu_ = config_.streamsPerGpu;
@@ -101,18 +106,18 @@ public:
 
     void setGpuNumber(int gpuNumber) {
         config_.gpuNumber = gpuNumber;
-        shouldRestart = true;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setStreamsPerGpu(int streamsPerGpu) {
         config_.streamsPerGpu = streamsPerGpu;
-        shouldRestart = true;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setGpuAndStreamNumber(int gpuNumber, int streamsPerGpu) {
         config_.gpuNumber = gpuNumber;
         config_.streamsPerGpu = streamsPerGpu;
-        shouldRestart = true;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setResolution(Resolution res) {
@@ -154,10 +159,7 @@ public:
     }
 
     void renderFrame() {
-        if (shouldRestart) {
-            restartAndUpdateParams();
-            shouldRestart = false;
-        }
+        restartAndUpdatePathTracerParamsIfNeeded();
 
         for (int i = 0; i < renderTasks_.size(); i++) {
             queue_.Produce(std::move(renderTasks_[i]));
@@ -204,5 +206,5 @@ private:
     unsigned int samplesPerPixel_;
     dim3 threadBlockSize_;
     RendererConfig& config_;
-    bool shouldRestart = false;
+    bool shouldUpdatePathTracerParams = false;
 };
