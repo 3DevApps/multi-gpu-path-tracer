@@ -8,6 +8,7 @@
 #include "../Renderer.h"
 #include "../../PixelDataEncoder/PixelDataEncoder.h"
 #include "../../PixelDataEncoder/JPEGEncoder.h"
+#include "../../PixelDataEncoder/PNGEncoder.h"
 #include "../../RendererConfig.h"
 
 class RemoteRenderer : public Renderer {
@@ -16,12 +17,13 @@ class RemoteRenderer : public Renderer {
 
         RemoteRenderer(std::string& jobId, RendererConfig& config);
         ~RemoteRenderer();
-        std::vector<uint8_t> processFrame(const uint8_t *frame);
+        std::vector<uint8_t> processFrame(const uint8_t *frame, bool useJpegEncoder = true);
         void renderFrame(const uint8_t *frame) override;
         void send(const std::string& data) override;
         bool shouldStopRendering() override;
         void addMessageListener(std::string eventName, LambdaFunction listener);
         void removeMessageListener(std::string eventName);
+        void generateAndSendSnapshot();
     private:
         const std::string SERVER_URL = "wss://pathtracing-relay-server.klatka.it/?path-tracing-job=true&jobId=";
         std::string& jobId;
@@ -30,9 +32,12 @@ class RemoteRenderer : public Renderer {
         std::uint32_t view_width;
         std::uint32_t view_height;
         std::vector<uint8_t> pixelData;
-        std::shared_ptr<PixelDataEncoder> pixelDataEncoder;
+        std::shared_ptr<PixelDataEncoder> jpegPixelDataEncoder;
+        std::shared_ptr<PixelDataEncoder> pngPixelDataEncoder;
         bool stopRenderer = false;
         RendererConfig& config;
+        bool generateAndSendSnapshotFlag = false;
 
         void onMessage(const ix::WebSocketMessagePtr& msg);
+        void generateAndSendSnapshotIfNeeded(const uint8_t *frame);
 };

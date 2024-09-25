@@ -4,8 +4,8 @@ RemoteRenderer::RemoteRenderer(std::string& jobId, RendererConfig& config)
     : jobId(jobId), config(config) {
     pixelData.resize(config.resolution.width * config.resolution.height * 3);
     
-    // pixelDataEncoder = std::make_shared<PNGEncoder>();
-    pixelDataEncoder = std::make_shared<JPEGEncoder>(75);
+    pngPixelDataEncoder = std::make_shared<PNGEncoder>();
+    jpegPixelDataEncoder = std::make_shared<JPEGEncoder>(75);
 
     webSocket.setUrl(SERVER_URL + jobId);
     webSocket.setOnMessageCallback(std::bind(&RemoteRenderer::onMessage, this, std::placeholders::_1));
@@ -46,7 +46,7 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr& msg) {
     }
 }
 
-std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame) {
+std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame, bool useJpegEncoder) {
     int view_width = config.resolution.width;
     int view_height = config.resolution.height;
 
@@ -65,6 +65,7 @@ std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame) {
     }
 
     std::vector<uint8_t> outputData;
+    auto& pixelDataEncoder = useJpegEncoder ? jpegPixelDataEncoder : pngPixelDataEncoder;
     if (!pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData)){
         outputData.clear();
     }
@@ -79,7 +80,28 @@ void RemoteRenderer::renderFrame(const uint8_t *frame) {
         outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
         ix::IXWebSocketSendData IXPixelData(outputData);
         webSocket.sendBinary(IXPixelData);
-    } 
+    }
+    generateAndSendSnapshotIfNeeded(frame);
+}
+
+void RemoteRenderer::generateAndSendSnapshotIfNeeded(const uint8_t *frame) {
+    if (!generateAndSendSnapshotFlag) {
+        return;
+    }
+    std::vector<uint8_t> outputData = processFrame(frame, false);
+    if (!outputData.empty()) {
+        std::string messagePrefix = "JOB_MESSAGE#SNAPSHOT#";
+        std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
+        outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
+        ix::IXWebSocketSendData IXPixelData(outputData);
+        webSocket.sendBinary(IXPixelData);
+    }
+    generateAndSendSnapshotFlag = false;
+}
+
+void RemoteRenderer::generateAndSendSnapshot() {
+    // When next frame is rendered, snapshot will be sent
+    generateAndSendSnapshotFlag = true;
 }
 
 bool RemoteRenderer::shouldStopRendering() {

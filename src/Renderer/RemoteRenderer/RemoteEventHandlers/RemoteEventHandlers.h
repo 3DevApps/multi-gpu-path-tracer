@@ -13,7 +13,7 @@ class RemoteEventHandlers {
     public:
         RemoteEventHandlers(RemoteRenderer &remoteRenderer, RenderManager& manager, HostScene& hScene) {
             addEventHandler<MouseMoveEventHandler>(remoteRenderer, hScene.cameraParams);
-            addEventHandler<RenderManagerEventHander>(remoteRenderer, manager, hScene);
+            addEventHandler<RenderManagerEventHander>(remoteRenderer, remoteRenderer, manager, hScene);
             addEventHandler<KeyboardEventHandler>(remoteRenderer, hScene);
         };
         

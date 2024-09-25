@@ -7,7 +7,7 @@
 
 class RenderManagerEventHander: EventHandler {
     public:
-        RenderManagerEventHander(RenderManager& manager, HostScene &hScene) : manager(manager), hScene(hScene) {};
+        RenderManagerEventHander(RemoteRenderer& remoteRenderer, RenderManager& manager, HostScene &hScene) : remoteRenderer(remoteRenderer), manager(manager), hScene(hScene) {};
 
         void handleEvent(const std::string& message) override {
             auto sepPos = message.find("#");
@@ -40,7 +40,7 @@ class RenderManagerEventHander: EventHandler {
             } else if (command == "LOAD_UPLOADED_SCENE") {
                 hScene.loadUploadedScene();
             } else if (command == "DOWNLOAD_SCENE_SNAPSHOT") {
-                // TODO: use processFrame from RemoteRenderer and send the data
+                remoteRenderer.generateAndSendSnapshot();
             }
         };
         
@@ -49,6 +49,7 @@ class RenderManagerEventHander: EventHandler {
         };
 
     private:
+        RemoteRenderer& remoteRenderer;
         RenderManager& manager;
         HostScene& hScene;
         PNGEncoder pngEncoder;
