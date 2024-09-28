@@ -2,6 +2,8 @@
 #include "LocalRenderer.h"
 #include "Utils.h"
 
+#ifdef USE_LOCAL_RENDERER
+
 LocalRenderer::LocalRenderer(Window& window)
     : window_(window)
     , width_(window.getWidth())
@@ -27,3 +29,5 @@ bool LocalRenderer::shouldStopRendering() {
     window_.pollEvents();
     return window_.shouldClose();
 }
+
+#endif

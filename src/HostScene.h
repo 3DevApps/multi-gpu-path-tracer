@@ -6,6 +6,7 @@
 #include "assimp/Importer.hpp"
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
+#include "RendererConfig.h"
 
 struct CameraParams {
     float3 front;
@@ -49,32 +50,16 @@ public:
 
 class HostScene {
 public:
-    HostScene(std::string &objPath, float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f) 
-    : cameraParams{front, lookFrom} {
-        triangles = loadTriangles(objPath.c_str());
+    HostScene(RendererConfig &config, float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f) 
+    : cameraParams{front, lookFrom}, config(config) {
+        triangles = loadTriangles(config.objPath.c_str());
     }
 
-    void setObjPath(std::string &objPath) {
+    void loadUploadedScene() {
+        std::string objPath = "../files/f" + config.jobId + ".obj";
         triangles = loadTriangles(objPath.c_str());
         notifyPrimitivesObservers();
     }
-
-    void setCameraLookFrom(float3 lookFrom) {
-        cameraParams.lookFrom = lookFrom;
-    }
-
-    void setCameraFront(float3 front) {
-        cameraParams.front = front;
-    }
-
-    void setVFOV(float vfov) {
-        cameraParams.vfov = vfov;
-    }
-
-    void setHFOV(float hfov) {
-        cameraParams.hfov = hfov;
-    }
-
 
     void registerPrimitivesObserver(PrimitivesObserver* observer) {
         primitivesObservers_.push_back(observer);
@@ -183,4 +168,5 @@ private:
 
     std::vector<CameraObserver*> cameraObservers_;
     std::vector<PrimitivesObserver*> primitivesObservers_;
+    RendererConfig &config;
 };
