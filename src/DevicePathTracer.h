@@ -24,7 +24,7 @@ struct RenderTask {
 
 struct Scene {
     hitable **d_list = nullptr;
-    hitable_list **d_world = nullptr;
+    bvh_node **d_world = nullptr;
     camera **d_camera = nullptr;
 };
 
@@ -64,7 +64,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,hitable_list **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,bvh_node **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -105,9 +105,11 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable_list **d_world, hitable **d_list, int d_list_size) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {                       
-        *d_world  = new hitable_list(d_list, d_list_size);
+__global__ void create_world(bvh_node **d_world, hitable **d_list, int d_list_size) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                 
+        curandState local_rand_state;
+        curand_init(1984, 0, 0, &local_rand_state);                     
+        *d_world  = new bvh_node(d_list, 0, d_list_size, &local_rand_state);      
     }
 }
 
@@ -117,7 +119,7 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable_list **d_world, int d_list_size) {
+__global__ void free_world(hitable **d_list, bvh_node **d_world, int d_list_size) {
     for (int i = 0; i < d_list_size; i++) {
         if (d_list[i]) {
             delete d_list[i];
@@ -244,7 +246,7 @@ public:
         }
 
         checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(hitable*)));
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh_node *)));
 
         
         for (int i = 0; i < hostScene_.triangles.size(); i++) {

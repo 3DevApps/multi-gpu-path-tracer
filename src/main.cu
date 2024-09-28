@@ -69,11 +69,11 @@ int main(int argc, char** argv) {
 
     while (!renderer.shouldStopRendering()) {
 
-        // auto start = std::chrono::high_resolution_clock::now();
+        auto start = std::chrono::high_resolution_clock::now();
         manager.renderFrame();
-        // auto stop = std::chrono::high_resolution_clock::now();
-        // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-        // std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+        std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
         renderer.renderFrame(manager.getCurrentFrame());
 	}
 
