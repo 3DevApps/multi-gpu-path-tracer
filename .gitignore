@@ -63,3 +63,5 @@ build
 *.fatbin
 
 # End of https://www.toptal.com/developers/gitignore/api/c++,cuda,cmake
+
+tmp
