@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_LOCAL_RENDERER
+
 #include <memory>
 #include <ctime>
 #include <vector>
@@ -22,3 +24,5 @@ private:
     GLuint fboId_;
     GLuint texId_;
 };
+
+#endif

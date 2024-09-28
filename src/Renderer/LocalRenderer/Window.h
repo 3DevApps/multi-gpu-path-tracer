@@ -1,8 +1,13 @@
 #pragma once
 
+#ifdef USE_LOCAL_RENDERER
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <cstdint>
+#include <cstdio>
+#include <cmath>
+#include <stdexcept>
 #include <memory>
 #include <vector>
 #include <functional>
@@ -55,3 +60,5 @@ private:
     std::uint32_t height_ = 0u;
 
 };
+
+#endif

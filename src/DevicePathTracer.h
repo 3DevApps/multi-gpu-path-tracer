@@ -10,8 +10,6 @@
 #include "camera.h"
 #include "material.h"
 #include "triangle.h"
-#include "Renderer/LocalRenderer/Window.h"
-#include "Renderer/LocalRenderer/LocalRenderer.h"
 #include "cuda_utils.h"
 #include "bvh.h"
 #include "RendererConfig.h"

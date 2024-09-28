@@ -2,25 +2,18 @@
 
 #include <cmath>
 #include "EventHandler.h"
+#include "../../../HostScene.h"
 
 class MouseMoveEventHandler: EventHandler {
     public:
-        MouseMoveEventHandler(CameraParams& camParams) : camParams(camParams) {};
+        MouseMoveEventHandler(CameraParams& camParams) : camParams(camParams) {
+            yaw = getDegrees(atan2(camParams.front.z, camParams.front.x));
+            pitch = getDegrees(asin(camParams.front.y));
+        };
 
-        void handleMouseMove(double xpos, double ypos) {
-            if (firstMouse) {
-                lastX = (double)xpos;
-                lastY = (double)ypos;
-                firstMouse = false;
-            }
-
-            double xoffset = (double)xpos - lastX;
-            double yoffset = lastY - (double)ypos; 
-            lastX = xpos;
-            lastY = ypos;
-
+        void handleMouseMove(double xoffset, double yoffset) {
             xoffset *= sensitivity;
-            yoffset *= sensitivity;
+            yoffset *= -sensitivity;
 
             yaw += xoffset;
             pitch += yoffset;
@@ -37,11 +30,10 @@ class MouseMoveEventHandler: EventHandler {
         };
 
         void handleEvent(const std::string& message) override {
-            std::cout << "Handling mouse move event" << std::endl;
             auto sepPos = message.find("#");
-            auto xpos = std::stod(message.substr(0, sepPos));
-            auto ypos = std::stod(message.substr(sepPos+1));
-            handleMouseMove(xpos, ypos);
+            auto xoffset = std::stod(message.substr(0, sepPos));
+            auto yoffset = std::stod(message.substr(sepPos+1));
+            handleMouseMove(xoffset, yoffset);
         };
         
         std::string getEventName() override {
@@ -51,13 +43,14 @@ class MouseMoveEventHandler: EventHandler {
     private:
         CameraParams& camParams;
         double sensitivity = 0.75f;
-        bool firstMouse;
-        float lastX;
-        float lastY;
         float pitch;
         float yaw;
 
         double getRadians(double value) {
             return M_PI * value / 180.0;
+        }
+
+        float getDegrees(float radians) {
+            return radians * 180.0 / M_PI;
         }
 };

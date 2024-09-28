@@ -1,9 +1,6 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
 #include "Window.h"
-#include <stdexcept>
-#include <cstdio>
-#include <cmath>
+
+#ifdef USE_LOCAL_RENDERER
 
 const std::unordered_map<MouseButton, int> mouseButtonToGlfwButton = {
     { MouseButton::Left,   GLFW_MOUSE_BUTTON_LEFT   },
@@ -156,3 +153,5 @@ void Window::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos
         sin(getRadians(self->pitch)), 
         sin(getRadians(self->yaw)) * cos(getRadians(self->pitch))));
 }
+
+#endif

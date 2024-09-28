@@ -24,16 +24,9 @@
 
 class RenderManager : PrimitivesObserver { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene) : hScene_{hScene}, lk_{m_} {
+        RenderManager(RendererConfig &config, HostScene &hScene) : config_{config}, hScene_{hScene}, lk_{m_} {
         hScene_.registerPrimitivesObserver(this);
-
-        streamsPerGpu_ = config.streamsPerGpu;
-        gpuNumber_ = config.gpuNumber;
-        
-        samplesPerPixel_ = config.samplesPerPixel;
-        recursionDepth_ = config.recursionDepth;
-        threadBlockSize_ = config.threadBlockSize;
-
+        newConfig_ = config_;
         renderTasks_ = taskGen_.generateEqualTasks(config.gpuNumber * config.streamsPerGpu, config.resolution.width, config.resolution.height);
         framebuffer_ = std::make_shared<Framebuffer>(config.resolution);
         setup();
@@ -44,36 +37,36 @@ public:
     }
 
     void reset() {
-        for (int i = 0; i < gpuNumber_; i++) {
-            for (int j = 0; j < streamsPerGpu_; j++) { 
+        for (int i = 0; i < config_.gpuNumber; i++) {
+            for (int j = 0; j < config_.streamsPerGpu; j++) { 
                 streamThreads_[i][j]->finish();
             }
         }
         queue_.Finish();
-        for (int i = 0; i < gpuNumber_; i++) {
-            for (int j = 0; j < streamsPerGpu_; j++) { 
+        for (int i = 0; i < config_.gpuNumber; i++) {
+            for (int j = 0; j < config_.streamsPerGpu; j++) { 
                 streamThreads_[i][j]->join();
             }
         }
 
-        devicePathTracers_ = {};
         streamThreads_ = {};
+        devicePathTracers_ = {};
     }
 
     void setup() {
-        for (int i = 0; i < gpuNumber_; i++) {
+        for (int i = 0; i < config_.gpuNumber; i++) {
             devicePathTracers_.push_back(std::make_shared<DevicePathTracer>(
                 i, 
-                samplesPerPixel_, 
-                recursionDepth_, 
-                threadBlockSize_, 
+                config_.samplesPerPixel, 
+                config_.recursionDepth, 
+                config_.threadBlockSize, 
                 hScene_, 
                 framebuffer_
             ));
 
             streamThreads_.push_back({}); 
-            streamThreads_[i].reserve(streamsPerGpu_);
-            for (int j = 0; j < streamsPerGpu_; j++) {
+            streamThreads_[i].reserve(config_.streamsPerGpu);
+            for (int j = 0; j < config_.streamsPerGpu; j++) {
                 streamThreads_[i].push_back(std::make_shared<StreamThread>(
                     i, 
                     queue_, 
@@ -87,58 +80,111 @@ public:
         }
 
         renderTasks_ = taskGen_.generateEqualTasks(
-            gpuNumber_ * streamsPerGpu_,
+            config_.gpuNumber * config_.streamsPerGpu,
             framebuffer_->getResolution().width, 
             framebuffer_->getResolution().height);
     }
 
+    void updatePathTracingParamsIfNeeded() {
+        if (!shouldUpdatePathTracerParams) {
+            return;
+        }
+        shouldUpdatePathTracerParams = false;
+
+        if (config_.gpuNumber != newConfig_.gpuNumber || config_.streamsPerGpu != newConfig_.streamsPerGpu) {
+            reset();
+            config_.gpuNumber = newConfig_.gpuNumber;
+            config_.streamsPerGpu = newConfig_.streamsPerGpu;
+            setup();
+        } 
+
+        if (config_.resolution.width != newConfig_.resolution.width || config_.resolution.height != newConfig_.resolution.height) {
+            config_.resolution = newConfig_.resolution;
+            framebuffer_->setResolution(config_.resolution);
+            for (const auto & dpt : devicePathTracers_) {
+                dpt->setFramebuffer(framebuffer_);
+            }
+            renderTasks_ = taskGen_.generateEqualTasks(config_.gpuNumber * config_.streamsPerGpu, config_.resolution.width, config_.resolution.height);
+        }
+
+        if (config_.samplesPerPixel != newConfig_.samplesPerPixel) {
+            config_.samplesPerPixel = newConfig_.samplesPerPixel;
+            for (const auto & dpt : devicePathTracers_) {
+                dpt->setSamplesPerPixel(config_.samplesPerPixel);
+            }
+        }
+
+        if (config_.recursionDepth != newConfig_.recursionDepth) {
+            config_.recursionDepth = newConfig_.recursionDepth;
+            for (const auto & dpt : devicePathTracers_) {
+                dpt->setRecursionDepth(config_.recursionDepth);
+            }
+        }
+
+        if (config_.threadBlockSize.x != newConfig_.threadBlockSize.x || config_.threadBlockSize.y != newConfig_.threadBlockSize.y) {
+            config_.threadBlockSize = newConfig_.threadBlockSize;
+            for (const auto & dpt : devicePathTracers_) {
+                dpt->setThreadBlockSize(config_.threadBlockSize);
+            }
+        }
+    }
+
+    void setGpuNumber(int gpuNumber) {
+        newConfig_.gpuNumber = gpuNumber;
+        shouldUpdatePathTracerParams = true;
+    }
+
+    void setStreamsPerGpu(int streamsPerGpu) {
+        newConfig_.streamsPerGpu = streamsPerGpu;
+        shouldUpdatePathTracerParams = true;
+    }
+
     void setGpuAndStreamNumber(int gpuNumber, int streamsPerGpu) {
-        reset();
-        gpuNumber_ = gpuNumber;
-        streamsPerGpu_ = streamsPerGpu;
-        setup();
+        newConfig_.gpuNumber = gpuNumber;
+        newConfig_.streamsPerGpu = streamsPerGpu;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setResolution(Resolution res) {
-        framebuffer_->setResolution(res);
-        for (const auto & dpt : devicePathTracers_) {
-            dpt->setFramebuffer(framebuffer_);
-        }
-        renderTasks_ = taskGen_.generateEqualTasks(gpuNumber_ * streamsPerGpu_, res.width, res.height);
+        newConfig_.resolution = res;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setSamplesPerPixel(unsigned int samples) {
-        samplesPerPixel_ = samples;
-        for (const auto & dpt : devicePathTracers_) {
-            dpt->setSamplesPerPixel(samples);
-        }
+        newConfig_.samplesPerPixel = samples;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setRecursionDepth(unsigned int depth) {
-        recursionDepth_ = depth;
-        for (const auto & dpt : devicePathTracers_) {
-            dpt->setRecursionDepth(depth); 
-        }
+        newConfig_.recursionDepth = depth;
+        shouldUpdatePathTracerParams = true;
     }
 
     void setThreadBlockSize(dim3 threadBlockSize) {
-        for (const auto & dpt : devicePathTracers_) {
-            dpt->setThreadBlockSize(threadBlockSize); 
-        }
+        newConfig_.threadBlockSize = threadBlockSize;
+        shouldUpdatePathTracerParams = true;
     }
 
-    void reloadWorld() {
+    void reloadWorldIfNeeded() {
+        if (!shouldReloadWorld) {
+            return;
+        }
+        shouldReloadWorld = false;
+
         for (const auto & dpt : devicePathTracers_) {
             dpt->reloadWorld();
         }
     }
 
     void renderFrame() {
+        updatePathTracingParamsIfNeeded();
+        reloadWorldIfNeeded();
+
         for (int i = 0; i < renderTasks_.size(); i++) {
             queue_.Produce(std::move(renderTasks_[i]));
         }
 
-        while(completedStreams_ != streamsPerGpu_ * gpuNumber_) {
+        while(completedStreams_ != config_.streamsPerGpu * config_.gpuNumber) {
             threadCv_.wait(lk_);
         }
         completedStreams_ = 0;
@@ -157,7 +203,7 @@ public:
     }
 
     void updatePrimitives() {
-        reloadWorld();
+        shouldReloadWorld = true;
     }
 
 private:
@@ -168,14 +214,13 @@ private:
     semaphore threadSemaphore_{0};
     std::atomic_int completedStreams_ = 0;
     std::shared_ptr<Framebuffer> framebuffer_;
-    int gpuNumber_;
-    int streamsPerGpu_;
     HostScene& hScene_; 
     std::mutex m_;
     std::unique_lock<std::mutex> lk_;
     std::vector<RenderTask> renderTasks_{};
     std::vector<std::vector<std::shared_ptr<StreamThread>>> streamThreads_{};    
-    unsigned int recursionDepth_;
-    unsigned int samplesPerPixel_;
-    dim3 threadBlockSize_;
+    RendererConfig& config_;
+    RendererConfig newConfig_{};
+    bool shouldUpdatePathTracerParams = false;
+    bool shouldReloadWorld = false;
 };
