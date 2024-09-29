@@ -36,9 +36,9 @@ cmake_install_libheif () {
 	clear
 	git clone --branch v1.18.2 --depth 1 $LIBHEIF_URL
 	cd *
-	cmake -DCMAKE_INSTALL_FULL_LIBDIR=~/libs .
-	cmake -DCMAKE_INSTALL_PREFIX=~/libs .
 	cmake --preset=release
+	cmake -DCMAKE_INSTALL_PREFIX:PATH=~/libs .
+	cmake -DCMAKE_INSTALL_FULL_LIBDIR:PATH=~/libs .
 	cmake --build .
 	cmake --install .
 }
@@ -68,9 +68,7 @@ for url in "${urls[@]}"; do
 done
 
 cmake_install_ixwebsocket
-
 clear
 
 cmake_install_libheif
-
 clear

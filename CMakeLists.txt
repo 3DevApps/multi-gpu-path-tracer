@@ -18,6 +18,7 @@ find_package(CUDAToolkit REQUIRED)
 find_package(assimp REQUIRED)
 find_package(ixwebsocket REQUIRED)
 find_package(PNG REQUIRED)
+find_package(libheif REQUIRED)
 
 set(CUDA_SEPARABLE_COMPILATION ON)
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
@@ -33,8 +34,8 @@ set(
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
 cuda_add_executable(cuda_project ${SOURCES})
 
-target_link_libraries(cuda_project assimp::assimp CUDA::nvml ixwebsocket::ixwebsocket PNG::PNG)
-target_link_libraries(cuda_project -lturbojpeg -lx264)
+target_link_libraries(cuda_project assimp::assimp CUDA::nvml ixwebsocket::ixwebsocket PNG::PNG heif)
+target_link_libraries(cuda_project -lturbojpeg)
 set_target_properties(cuda_project PROPERTIES CUDA_ARCHITECTURES "75,70")
 
 if (USE_LOCAL_RENDERER)
