@@ -32,6 +32,7 @@
 # Executables
 *.exe
 *.out
+*.err
 *.app
 
 ### CMake ###
@@ -62,3 +63,5 @@ build
 *.fatbin
 
 # End of https://www.toptal.com/developers/gitignore/api/c++,cuda,cmake
+
+tmp

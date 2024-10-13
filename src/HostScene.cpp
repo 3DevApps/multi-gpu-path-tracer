@@ -68,8 +68,12 @@ glm::mat4 convertMatrix(const aiMatrix4x4 &m) {
     return ret;
 }
 
-HostScene::HostScene(std::string &objPath, float3 lookFrom, float3 front, float vfov, float hfov) : cameraParams{front, lookFrom} {
-    Assimp::Importer importer;
+
+
+HostScene::HostScene(RendererConfig &config, float3 lookFrom, float3 front, float vfov, float hfov)
+    : cameraParams{front, lookFrom}, config(config) {
+
+    auto& objPath = config.objPath;
     const aiScene *scene = importer.ReadFile(objPath, aiProcess_Triangulate | aiProcess_FindDegenerates);
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         throw std::runtime_error(importer.GetErrorString());

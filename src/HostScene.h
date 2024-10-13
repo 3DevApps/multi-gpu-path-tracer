@@ -14,6 +14,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <glm/glm.hpp>
+#include "RendererConfig.h"
 
 struct CameraParams {
     float3 front;
@@ -66,29 +67,30 @@ public:
 
 class HostScene {
 public:
-    HostScene(std::string &objPath, float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f);
+    // HostScene(std::string &objPath, float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f);
 
     void setObjPath(std::string &objPath) {
         // triangles = loadTriangles(objPath.c_str());
         notifyPrimitivesObservers();
     }
 
-    void setCameraLookFrom(float3 lookFrom) {
-        cameraParams.lookFrom = lookFrom;
-    }
+    HostScene(RendererConfig &config, float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f);
+    // : cameraParams{front, lookFrom}, config(config);
+    // {
+    //     triangles = loadTriangles(config.objPath.c_str());
+    // }
 
-    void setCameraFront(float3 front) {
-        cameraParams.front = front;
-    }
+    void loadUploadedScene() {
+        // std::string objPath = "../files/f" + config.jobId + ".obj";
 
-    void setVFOV(float vfov) {
-        cameraParams.vfov = vfov;
-    }
+        // const aiScene *scene = importer.ReadFile(objPath, aiProcess_Triangulate | aiProcess_FindDegenerates);
+        // if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+        //     throw std::runtime_error(importer.GetErrorString());
+        // }
 
-    void setHFOV(float hfov) {
-        cameraParams.hfov = hfov;
+        // triangles = loadTrianglesOBJ(scene);
+        // notifyPrimitivesObservers();
     }
-
 
     void registerPrimitivesObserver(PrimitivesObserver* observer) {
         primitivesObservers_.push_back(observer);
@@ -138,4 +140,6 @@ private:
     std::vector<PrimitivesObserver*> primitivesObservers_;
     std::mutex texCacheMutex_;
     std::string resourcePath_;
+    RendererConfig &config;
+    Assimp::Importer importer;
 };

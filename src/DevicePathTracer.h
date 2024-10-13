@@ -10,8 +10,6 @@
 #include "camera.h"
 #include "material.h"
 #include "triangle.h"
-#include "Renderer/LocalRenderer/Window.h"
-#include "Renderer/LocalRenderer/LocalRenderer.h"
 #include "cuda_utils.h"
 #include "bvh.h"
 #include "RendererConfig.h"
@@ -31,6 +29,7 @@ struct DeviceTexturePointers {
 
 struct Scene {
     hitable **d_list = nullptr;
+    // bvh_node **d_world = nullptr;
     hitable_list **d_world = nullptr;
     camera **d_camera = nullptr;
     std::vector<DeviceTexturePointers> texturePointers{};
@@ -72,7 +71,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,hitable_list **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, hitable_list **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -114,8 +113,10 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list_size Number of objects in objects array 
  */
 __global__ void create_world(hitable_list **d_world, hitable **d_list, int d_list_size) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {                       
-        *d_world  = new hitable_list(d_list, d_list_size);
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                 
+        curandState local_rand_state;
+        curand_init(1984, 0, 0, &local_rand_state);                     
+        *d_world  = new hitable_list(d_list, d_list_size);      
     }
 }
 
