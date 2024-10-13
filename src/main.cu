@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     auto args = argLoader.loadAndGetArguments();
 
     RendererConfig config; 
-    HostScene hScene(config.objPath, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
+    HostScene hScene(config.objPath, make_float3(0.05, 0.05, 0.05), make_float3(-0.05, -0.05, -0.05));
     Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", hScene.cameraParams);
     RenderManager manager(config, hScene);
     /*
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
     while (!renderer.shouldStopRendering()) {
-
+        
         auto start = std::chrono::high_resolution_clock::now();
         manager.renderFrame();
         auto stop = std::chrono::high_resolution_clock::now();

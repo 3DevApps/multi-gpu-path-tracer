@@ -12,9 +12,9 @@ enum SchedulingAlgorithmType {
 struct RendererConfig {
     unsigned int samplesPerPixel = 20; 
     unsigned int recursionDepth = 3; 
-    std::string objPath = "models/cornell-box.obj"; 
-    unsigned int gpuNumber = 2;   
-    unsigned int streamsPerGpu = 5;
+    std::string objPath = "models/Duck/glTF/Duck.gltf";
+    unsigned int gpuNumber = 2;
+    unsigned int streamsPerGpu = 1;
     Resolution resolution{400, 400}; 
     SchedulingAlgorithmType algorithmType = BASIC_SCHEDULING; // TODO: add support for different algorithms
     dim3 threadBlockSize{8, 8}; 

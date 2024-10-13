@@ -10,6 +10,7 @@ struct hit_record{
     float3 p;
     float3 normal;
     material *mat_ptr;
+    float2 texCoord;
 };
 
 

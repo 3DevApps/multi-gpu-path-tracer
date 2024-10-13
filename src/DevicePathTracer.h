@@ -24,10 +24,16 @@ struct RenderTask {
     int offset_y;
 };
 
+struct DeviceTexturePointers {
+    float3* textureData;
+    BaseColorTexture** texture; 
+};
+
 struct Scene {
     hitable **d_list = nullptr;
     hitable_list **d_world = nullptr;
     camera **d_camera = nullptr;
+    std::vector<DeviceTexturePointers> texturePointers{};
 };
 
 /**
@@ -141,7 +147,7 @@ __global__ void free_camera(camera **d_camera) {
         
 }
 
-__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index) {
+__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index, BaseColorTexture** texture) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         material* mat;
         if (hTriangle.material_params.type == LAMBERTIAN) {
@@ -157,10 +163,22 @@ __global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int ind
             mat = new diffuse_light(hTriangle.material_params.color_diffuse);
         } 
         else {
-            // Use LAMBERTIAN by default
-            mat = new lambertian(hTriangle.material_params.color_ambient);
+            mat = new UniversalMaterial(make_float3(1, 1, 1), *texture);
         }
         d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
+    }
+}
+
+
+__global__ void deviceInitTexture(BaseColorTexture** texture, int width, int height, float3 *tex_data) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        *texture = new BaseColorTexture(width, height, tex_data);
+    }
+}
+
+__global__ void deviceFreeTexture(BaseColorTexture** texture) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        delete *texture;
     }
 }
 
@@ -228,6 +246,58 @@ public:
         create_camera<<<1,1>>>(scene_.d_camera);
     }
 
+    void loadTextures() {
+        for (int i = 0; i < hostScene_.textures.size(); i++) {
+            float3* d_tex;
+            BaseColorTexture** texture;
+
+            checkCudaErrors(cudaMalloc((void **)&d_tex, hostScene_.textures[i]->width() * hostScene_.textures[i]->height() * sizeof(float3)));
+            cudaMemcpy(d_tex, hostScene_.textures[i]->data, hostScene_.textures[i]->width() * hostScene_.textures[i]->height() * sizeof(float3), cudaMemcpyHostToDevice);
+            checkCudaErrors(cudaMalloc((void**)&texture, sizeof(BaseColorTexture*)));
+
+            scene_.texturePointers.push_back({d_tex, texture});
+            deviceInitTexture<<<1, 1>>>(texture, hostScene_.textures[i]->width(), hostScene_.textures[i]->height(), d_tex);
+            checkCudaErrors(cudaGetLastError());
+            checkCudaErrors(cudaDeviceSynchronize());
+        }
+    }
+
+    void clearTextures() {
+        for (int i = 0; i < scene_.texturePointers.size(); i++) {
+            cudaFree(scene_.texturePointers[i].texture);
+            cudaFree(scene_.texturePointers[i].textureData); 
+
+            deviceFreeTexture<<<1, 1>>>(scene_.texturePointers[i].texture);
+        }
+        scene_.texturePointers = {};
+    }
+
+    void loadTrianglesWithTextures() {
+        for (int i = 0; i < hostScene_.triangles.size(); i++) {
+            deviceLoadTriangle<<<1, 1>>>(
+                scene_.d_list, 
+                hostScene_.triangles[i], 
+                i,
+                scene_.texturePointers[hostScene_.triangles[i].textureIdx].texture
+            );
+            checkCudaErrors(cudaGetLastError());
+            checkCudaErrors(cudaDeviceSynchronize());
+        }
+    }
+
+    void loadTrianglesWithoutTextures() {
+        for (int i = 0; i < hostScene_.triangles.size(); i++) {
+            deviceLoadTriangle<<<1, 1>>>(
+                scene_.d_list, 
+                hostScene_.triangles[i], 
+                i,
+                nullptr
+            );
+            checkCudaErrors(cudaGetLastError());
+            checkCudaErrors(cudaDeviceSynchronize());
+        }
+    }
+
 
     // To be called when scene triangles change
     void reloadWorld() {
@@ -245,14 +315,19 @@ public:
             scene_.d_list = nullptr;
         }
 
+        if (!scene_.texturePointers.empty()) {
+            clearTextures();
+        }
+        
         checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(hitable*)));
         checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
 
-        
-        for (int i = 0; i < hostScene_.triangles.size(); i++) {
-            deviceLoadTriangle<<<1, 1>>>(scene_.d_list, hostScene_.triangles[i], i);
-            checkCudaErrors(cudaGetLastError());
-            checkCudaErrors(cudaDeviceSynchronize());
+        if (!hostScene_.textures.empty()) {
+            loadTextures();
+            loadTrianglesWithTextures();
+        }
+        else {
+            loadTrianglesWithoutTextures();
         }
 
         create_world<<<1,1>>>(scene_.d_world, scene_.d_list, hostScene_.triangles.size());
@@ -299,11 +374,14 @@ public:
         free_camera<<<1, 1>>>(scene_.d_camera);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
+
+        if (!scene_.texturePointers.empty()) {
+            clearTextures();
+        }
     }
 
 private:
     int device_idx_;
-    // Resolution resolution_;
     dim3 blocks_;
     dim3 threads_;
     curandState *d_rand_state_ = nullptr;
@@ -313,7 +391,6 @@ private:
     HostScene& hostScene_;
     unsigned int samplesPerPixel_;
     unsigned int recursionDepth_;
-    // uint8_t *fb_;
     std::shared_ptr<Framebuffer> framebuffer_;
 };
 

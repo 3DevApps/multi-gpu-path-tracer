@@ -20,6 +20,7 @@ find_package(GLEW REQUIRED)
 find_package(assimp REQUIRED)
 find_package(ixwebsocket REQUIRED)
 find_package(PNG REQUIRED)
+find_package(glm REQUIRED)
 
 set(CUDA_SEPARABLE_COMPILATION ON)
 set(CUDA_PROPAGATE_HOST_FLAGS OFF)
@@ -36,7 +37,7 @@ set(
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.cu")
 cuda_add_executable(cuda_project ${SOURCES})
 
-target_link_libraries(cuda_project glfw OpenGL::GL GLEW::GLEW assimp::assimp CUDA::nvml ixwebsocket::ixwebsocket PNG::PNG)
+target_link_libraries(cuda_project glfw OpenGL::GL GLEW::GLEW assimp::assimp CUDA::nvml ixwebsocket::ixwebsocket PNG::PNG glm::glm)
 target_link_libraries(cuda_project -lturbojpeg)
 set_target_properties(cuda_project PROPERTIES CUDA_ARCHITECTURES "75,70")
 

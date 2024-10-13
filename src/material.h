@@ -2,6 +2,8 @@
 #include "hitable.h"
 #include "ray.h"
 #include "helper_math.h"
+#include "Texture.h"
+
 class hit_record;
 
 __device__ float schlick_approx(float cosine, float ref_idx) {
@@ -28,10 +30,42 @@ class material {
     __device__ virtual bool scatter(
         const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState  *local_rand_state) const{
         return false;
-        }
+    }
     __device__ virtual float3 emitted() const {
         return make_float3(0.0, 0.0, 0.0);
     }
+};
+
+class UniversalMaterial : public material {
+public:
+    __device__ UniversalMaterial(
+        float3 baseColorFactor,
+        BaseColorTexture* baseColorTexture
+    ) : baseColorFactor_{baseColorFactor},
+        baseColorTexture_{baseColorTexture} {}
+
+
+    __device__ virtual bool scatter( 
+        const ray& r_in, 
+        const hit_record& rec, 
+        float3& attenuation, 
+        ray& scattered, 
+        curandState *local_rand_state
+    ) const override {
+        float3 scatter_direction = rec.normal + random_in_unit_sphere(local_rand_state);
+        // Catch degenerate scatter direction
+        if (near_zero(scatter_direction)) {
+            scatter_direction = rec.normal;
+        }
+        scattered = ray(rec.p, scatter_direction);
+        // attenuation = albedo;
+
+        attenuation = baseColorTexture_->value(rec.texCoord, rec.p);
+        return true;
+    }
+
+    float3 baseColorFactor_;
+    BaseColorTexture* baseColorTexture_;
 };
 
 //matte material
