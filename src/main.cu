@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     // ArgumentLoader argLoader(argc, argv);
     // argLoader.loadArguments(config);
 
-    HostScene hScene(config, make_float3(4, 4, 4), make_float3(-4, -3, -4));
+    HostScene hScene(config, make_float3(0.00, 0.0, 0.05), make_float3(0.0, 0.0, 0.0));
     RenderManager manager(config, hScene);
     /*
     changing parameters:
