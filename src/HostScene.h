@@ -38,11 +38,21 @@ struct m_ai_material {
     float3 color_diffuse;
     float index_of_refraction;
     float shininess;
+    int textureIdx;
 };
 
 struct Vertex {
     float3 position;
     float2 texCoords;
+};
+
+struct HostMaterial {
+    material_type type ;
+    float3 color_ambient;
+    float3 color_diffuse;
+    float index_of_refraction;
+    float shininess;
+    int textureIdx;
 };
 
 struct Triangle {
@@ -51,7 +61,9 @@ struct Triangle {
     Vertex v2;
     m_ai_material material_params;
     std::shared_ptr<HostTexture> texture;
+    std::shared_ptr<HostMaterial> material;
     int textureIdx;
+    int materialIdx;
 };
 
 

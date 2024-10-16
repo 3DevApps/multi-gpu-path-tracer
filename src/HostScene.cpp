@@ -104,6 +104,8 @@ HostScene::HostScene(RendererConfig &config, float3 lookFrom, float3 front, floa
     }
 
     std::cout << "Number of triangles: " << triangles.size() << std::endl;
+    // triangles = std::vector<Triangle>(triangles.begin(), triangles.begin() + 100000);
+    // std::cout << "Number of triangles: " << triangles.size() << std::endl;
 }
 
 bool HostScene::processMaterial(const aiMaterial *ai_material, aiTextureType textureType, Triangle &triangle) {
@@ -117,7 +119,7 @@ bool HostScene::processMaterial(const aiMaterial *ai_material, aiTextureType tex
         aiReturn retStatus = ai_material->GetTexture(textureType, i, &texPath, nullptr, nullptr, nullptr, nullptr, &texMapMode[0]);
 
         if (retStatus != aiReturn_SUCCESS || texPath.length == 0) {
-            std::cout << "load texture type= index= failed with return value=" << std::endl;
+            std::cout << "load texture type=" << textureType << "failed with return value=" << retStatus  << "texPath: " << texPath.C_Str() << std::endl;
             continue;
         }
 

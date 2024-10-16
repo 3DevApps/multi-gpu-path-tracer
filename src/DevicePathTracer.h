@@ -164,7 +164,9 @@ __global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int ind
             mat = new diffuse_light(hTriangle.material_params.color_diffuse);
         } 
         else {
+            // mat = new lambertian(hTriangle.material_params.color_ambient);
             mat = new UniversalMaterial(make_float3(1, 1, 1), *texture);
+            // printf("TESTING if works %ld \n", mat);
         }
         d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
     }
@@ -198,6 +200,10 @@ public:
             hostScene_{hostScene},
             threadBlockSize_{threadBlockSize}, 
             framebuffer_{framebuffer} {
+        
+        cudaSetDevice(device_idx_);
+        checkCudaErrors(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 2000000000)); 
+
         reloadWorld();
         reloadCamera();
         setFramebuffer(framebuffer_);
@@ -275,6 +281,7 @@ public:
 
     void loadTrianglesWithTextures() {
         for (int i = 0; i < hostScene_.triangles.size(); i++) {
+            // std::cout << "index" << scene_.texturePointers.size() << ", index: " << hostScene_.triangles[i].textureIdx << std::endl; 
             deviceLoadTriangle<<<1, 1>>>(
                 scene_.d_list, 
                 hostScene_.triangles[i], 

@@ -31,12 +31,11 @@
 
 int main(int argc, char** argv) {
     RendererConfig config; 
-
     // ArgumentLoader argLoader(argc, argv);
     // argLoader.loadArguments(config);
 
     HostScene hScene(config, make_float3(0.00, 0.0, 0.05), make_float3(0.0, 0.0, 0.0));
-    RenderManager manager(config, hScene);
+    
     /*
     changing parameters:
     manager.setSamplesPerPixel(30);
@@ -64,6 +63,12 @@ int main(int argc, char** argv) {
 
     MonitorThread monitor_thread_obj(renderer);
     std::thread monitor_thread(std::ref(monitor_thread_obj));
+
+
+    RenderManager manager(config, hScene);
+
+    auto start_init = std::chrono::high_resolution_clock::now();
+    auto stop_init = std::chrono::high_resolution_clock::now();
 
     while (!renderer.shouldStopRendering()) {
         
