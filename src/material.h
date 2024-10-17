@@ -36,22 +36,28 @@ class material {
     }
 };
 
-class UniversalMaterial : public material {
+// class UniversalMaterial : public material {
+class UniversalMaterial {
 public:
-    __device__ UniversalMaterial(
-        float3 baseColorFactor,
-        BaseColorTexture* baseColorTexture
-    ) : baseColorFactor_{baseColorFactor},
-        baseColorTexture_{baseColorTexture} {}
+    // __device__ UniversalMaterial(
+    //     float3 baseColorFactor,
+    //     BaseColorTexture* baseColorTexture
+    // ) : baseColorFactor_{baseColorFactor},
+    //     baseColorTexture_{baseColorTexture} {}
+
+    __host__ __device__ void init(float3 baseColorFactor, BaseColorTexture* baseColorTexture) {
+        baseColorFactor_ = baseColorFactor;
+        baseColorTexture_ = baseColorTexture;
+    }
 
 
-    __device__ virtual bool scatter( 
+    __device__ bool scatter( 
         const ray& r_in, 
         const hit_record& rec, 
         float3& attenuation, 
         ray& scattered, 
         curandState *local_rand_state
-    ) const override {
+    ) const {
         float3 scatter_direction = rec.normal + random_in_unit_sphere(local_rand_state);
         // Catch degenerate scatter direction
         if (near_zero(scatter_direction)) {
@@ -62,6 +68,10 @@ public:
 
         attenuation = baseColorTexture_->value(rec.texCoord, rec.p);
         return true;
+    }
+
+    __device__ float3 emitted() const {
+        return make_float3(0.0, 0.0, 0.0);
     }
 
     float3 baseColorFactor_;

@@ -4,22 +4,23 @@
 #include "ray.h"
 #include "aabb.h"
 #include "interval.h"
+#include "triangle.h"
 
 
 class hitable_list: public hitable
 {
     public:
         __device__ hitable_list() {}
-        __device__ hitable_list(hitable **l, int n) {
+        __device__ hitable_list(triangle **l, int n) {
             list = l;
             list_size = n; 
-            for (int i = 0; i < n; i++)
-            {
-                bbox = aabb(bbox, l[i]->bbox);
-            }
+            // for (int i = 0; i < n; i++)
+            // {
+            //     bbox = aabb(bbox, l[i]->bbox);
+            // }
         }
         __device__ virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const;
-        hitable **list;
+        triangle **list;
         int list_size;
 };
 /**

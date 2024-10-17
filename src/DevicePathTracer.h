@@ -24,16 +24,18 @@ struct RenderTask {
 
 struct DeviceTexturePointers {
     float3* textureData;
-    BaseColorTexture** texture; 
+    // BaseColorTexture** texture;
+    BaseColorTexture* texture; 
 };
 
 struct Scene {
-    hitable **d_list = nullptr;
+    triangle **d_list = nullptr;
     // bvh_node **d_world = nullptr;
     hitable_list **d_world = nullptr;
     camera **d_camera = nullptr;
     std::vector<DeviceTexturePointers> texturePointers{};
-    std::vector<material**> materialPointers{}; 
+    // std::vector<material**> materialPointers{};
+    std::vector<UniversalMaterial*> materialPointers{}; 
 };
 
 /**
@@ -113,7 +115,7 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable_list **d_world, hitable **d_list, int d_list_size) {
+__global__ void create_world(hitable_list **d_world, triangle **d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                 
         curandState local_rand_state;
         curand_init(1984, 0, 0, &local_rand_state);                     
@@ -127,7 +129,7 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(hitable **d_list, hitable_list **d_world, int d_list_size) {
+__global__ void free_world(triangle **d_list, hitable_list **d_world, int d_list_size) {
     for (int i = 0; i < d_list_size; i++) {
         if (d_list[i]) {
             delete d_list[i];
@@ -149,7 +151,7 @@ __global__ void free_camera(camera **d_camera) {
         
 }
 
-__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index, material** mat) {
+__global__ void deviceLoadTriangle(triangle **d_list, Triangle hTriangle, int index, UniversalMaterial* mat) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         // material* mat;
         // if (hTriangle.material_params.type == LAMBERTIAN) {
@@ -170,28 +172,57 @@ __global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int ind
         //     // printf("TESTING if works %ld \n", mat);
         // }
         // mat = new lambertian(hTriangle.material_params.color_ambient);
-        d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, *mat);
+        // d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
+        d_list[index] = new triangle();
+        d_list[index]->init(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
+
     }
 }
 
 
-__global__ void deviceInitTexture(BaseColorTexture** texture, int width, int height, float3 *tex_data) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        *texture = new BaseColorTexture(width, height, tex_data);
-    }
-}
+// __global__ void deviceInitTexture(BaseColorTexture** texture, int width, int height, float3 *tex_data) {
+//     if (threadIdx.x == 0 && blockIdx.x == 0) {
+//         // *texture = new BaseColorTexture(width, height, tex_data);
+//         *texture = new BaseColorTexture();
+//         (*texture)->init(width, height, tex_data);
+//     }
+// }
 
-__global__ void deviceFreeTexture(BaseColorTexture** texture) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        delete *texture;
-    }
-}
+// __global__ void deviceInitTexture(BaseColorTexture** texture, int width, int height, float3 *tex_data, BaseColorTexture* textureDevice) {
+//     if (threadIdx.x == 0 && blockIdx.x == 0) {
+//         // *texture = new BaseColorTexture(width, height, tex_data);
+//         *texture = textureDevice;
+//         // (*texture)->init(width, height, tex_data);
+//     }
+// }
 
-__global__ void deviceInitMaterial(material** material, BaseColorTexture** texture) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        *material = new UniversalMaterial(make_float3(1, 1, 1), *texture);
-    }
-}
+
+// __global__ void deviceFreeTexture(BaseColorTexture** texture) {
+//     if (threadIdx.x == 0 && blockIdx.x == 0) {
+//         delete *texture;
+//     }
+// }
+
+// __global__ void deviceFreeTexture(BaseColorTexture* texture) {
+//     if (threadIdx.x == 0 && blockIdx.x == 0) {
+//         delete texture;
+//     }
+// }
+
+// __global__ void deviceInitMaterial(material** material, BaseColorTexture** texture) {
+//     if (threadIdx.x == 0 && blockIdx.x == 0) {
+//         *material = new UniversalMaterial(make_float3(1, 1, 1), *texture);
+//     }
+// }
+
+// __global__ void deviceInitMaterial(UniversalMaterial** material, BaseColorTexture* texture, UniversalMaterial *deviceMat) {
+//     if (threadIdx.x == 0 && blockIdx.x == 0) {
+//         // *material = new UniversalMaterial(make_float3(1, 1, 1), texture);
+//         // *material = new UniversalMaterial();
+//         // (*material)->init(make_float3(1, 1, 1), texture);
+//         *material = deviceMat;
+//     }
+// }
 
 class DevicePathTracer {
 public:
@@ -264,28 +295,36 @@ public:
     void loadTextures() {
         for (int i = 0; i < hostScene_.textures.size(); i++) {
             float3* d_tex;
-            BaseColorTexture** texture;
-
             checkCudaErrors(cudaMalloc((void **)&d_tex, hostScene_.textures[i]->width() * hostScene_.textures[i]->height() * sizeof(float3)));
             cudaMemcpy(d_tex, hostScene_.textures[i]->data, hostScene_.textures[i]->width() * hostScene_.textures[i]->height() * sizeof(float3), cudaMemcpyHostToDevice);
-            checkCudaErrors(cudaMalloc((void**)&texture, sizeof(BaseColorTexture*)));
 
-            scene_.texturePointers.push_back({d_tex, texture});
-            deviceInitTexture<<<1, 1>>>(texture, hostScene_.textures[i]->width(), hostScene_.textures[i]->height(), d_tex);
-            checkCudaErrors(cudaGetLastError());
-            checkCudaErrors(cudaDeviceSynchronize());
+            //should be done better, using unified type instead of host - wszytsko w initie ogolnego typu dla tekstur
+            BaseColorTexture textureLocal;
+            BaseColorTexture* textureDevice;
+            textureLocal.init(hostScene_.textures[i]->width(), hostScene_.textures[i]->height(), d_tex);
+            checkCudaErrors(cudaMalloc((void**)&textureDevice, sizeof(BaseColorTexture)));
+            checkCudaErrors(cudaMemcpy(textureDevice, &textureLocal, sizeof(BaseColorTexture), cudaMemcpyHostToDevice));
+
+            scene_.texturePointers.push_back({d_tex, textureDevice});
         }
     }
 
     void loadMaterials() {
         for (int i = 0; i < hostScene_.materials.size(); i++) {
             int textureIdx = hostScene_.materials[i]->baseColorTextureIdx;
-            material** mat;
-            checkCudaErrors(cudaMalloc((void**)&mat, sizeof(material*)));
-            scene_.materialPointers.push_back(mat);
-            deviceInitMaterial<<<1, 1>>>(mat, scene_.texturePointers[textureIdx].texture);
-            checkCudaErrors(cudaGetLastError());
-            checkCudaErrors(cudaDeviceSynchronize());
+            // UniversalMaterial** mat;
+            // checkCudaErrors(cudaMalloc((void**)&mat, sizeof(UniversalMaterial*)));
+
+            UniversalMaterial matLocal;
+            UniversalMaterial* deviceMat;
+            matLocal.init(make_float3(1, 1, 1), scene_.texturePointers[textureIdx].texture);
+            checkCudaErrors(cudaMalloc((void**)&deviceMat, sizeof(UniversalMaterial)));
+            checkCudaErrors(cudaMemcpy(deviceMat, &matLocal, sizeof(UniversalMaterial), cudaMemcpyHostToDevice));
+            
+            // deviceInitMaterial<<<1, 1>>>(mat, scene_.texturePointers[textureIdx].texture, deviceMat);
+            // checkCudaErrors(cudaGetLastError());
+            // checkCudaErrors(cudaDeviceSynchronize());
+            scene_.materialPointers.push_back(deviceMat);
         }
     }
 
@@ -294,7 +333,7 @@ public:
             cudaFree(scene_.texturePointers[i].texture);
             cudaFree(scene_.texturePointers[i].textureData); 
 
-            deviceFreeTexture<<<1, 1>>>(scene_.texturePointers[i].texture);
+            // deviceFreeTexture<<<1, 1>>>(scene_.texturePointers[i].texture);
         }
         scene_.texturePointers = {};
     }
@@ -364,7 +403,7 @@ public:
             //
         }
         
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(hitable*)));
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(triangle*)));
         checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
 
         if (!hostScene_.textures.empty()) {
