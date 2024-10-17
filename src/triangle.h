@@ -13,7 +13,6 @@
 // class triangle: public hitable
 class triangle {
 public:
-    // __device__ triangle(Vertex v0, Vertex v1, Vertex v2, UniversalMaterial *mat_ptr) : v0(v0), v1(v1), v2(v2), mat_ptr(mat_ptr) {};
     __device__ __host__ void init(Vertex v0, Vertex v1, Vertex v2, UniversalMaterial *mat_ptr) {
         v0_ = v0; 
         v1_ = v1; 
@@ -22,9 +21,6 @@ public:
     }
 
     __device__ bool hit(const ray& r, interval ray_t, hit_record& rec) const;
-    __device__ ~triangle() {
-        delete mat_ptr_;
-    };
 
     Vertex v0_, v1_, v2_;
     UniversalMaterial *mat_ptr_;

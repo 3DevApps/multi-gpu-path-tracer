@@ -29,7 +29,7 @@ struct DeviceTexturePointers {
 };
 
 struct Scene {
-    triangle **d_list = nullptr;
+    triangle *d_list = nullptr;
     // bvh_node **d_world = nullptr;
     hitable_list **d_world = nullptr;
     camera **d_camera = nullptr;
@@ -65,7 +65,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * It takes in the framebuffer `fb`, the maximum width and height of the image `max_x` and `max_y`,
  * the number of samples per pixel `sample_per_pixel`, an array of camera pointers `cam`, an array of
  * hitable pointers `world`, and the random state for each thread `rand_state`.
- *
+ *./
  * @param fb The framebuffer to store the rendered image.
  * @param max_x The maximum width of the image.
  * @param max_y The maximum height of the image.
@@ -115,7 +115,7 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable_list **d_world, triangle **d_list, int d_list_size) {
+__global__ void create_world(hitable_list **d_world, triangle *d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                 
         curandState local_rand_state;
         curand_init(1984, 0, 0, &local_rand_state);                     
@@ -129,13 +129,14 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(triangle **d_list, hitable_list **d_world, int d_list_size) {
-    for (int i = 0; i < d_list_size; i++) {
-        if (d_list[i]) {
-            delete d_list[i];
-            d_list[i] = nullptr;
-        }
-    }
+__global__ void free_world(triangle *d_list, hitable_list **d_world, int d_list_size) {
+    // free(d_list);
+    // for (int i = 0; i < d_list_size; i++) {
+        // if (d_list[i]) {
+        //     delete d_list[i];
+        //     d_list[i] = nullptr;
+        // }
+    // }
 
     if (*d_world) {
         delete *d_world; 
@@ -353,29 +354,49 @@ public:
     // }
 
     void loadTrianglesWithTextures() {
+        triangle* localTriangles = new triangle[hostScene_.triangles.size()];
         for (int i = 0; i < hostScene_.triangles.size(); i++) {
-            deviceLoadTriangle<<<1, 1>>>(
-                scene_.d_list, 
-                hostScene_.triangles[i], 
-                i,
-                scene_.materialPointers[hostScene_.triangles[i].materialIdx]
-            );
-            checkCudaErrors(cudaGetLastError());
-            checkCudaErrors(cudaDeviceSynchronize());
+                // localTriangles[i].init(
+                //     hostScene_.triangles[i].v0,
+                //     hostScene_.triangles[i].v1,
+                //     hostScene_.triangles[i].v2, 
+                //     0
+                //     // scene_.materialPointers[hostScene_.triangles[i].materialIdx]
+                // );
+            // deviceLoadTriangle<<<1, 1>>>(
+            //     scene_.d_list, 
+            //     hostScene_.triangles[i], 
+            //     i,
+            //     scene_.materialPointers[hostScene_.triangles[i].materialIdx]
+            // );
+            // checkCudaErrors(cudaGetLastError());
+            // checkCudaErrors(cudaDeviceSynchronize());
         }
+
+        // checkCudaErrors(cudaMalloc(
+        //     (void**)&scene_.d_list, 
+        //     hostScene_.triangles.size() * sizeof(triangle)
+        // ));
+
+        // checkCudaErrors(cudaMemcpy(
+        //     scene_.d_list, 
+        //     &localTriangles, 
+        //     hostScene_.triangles.size() * sizeof(triangle), 
+        //     cudaMemcpyHostToDevice
+        // ));
     }
 
     void loadTrianglesWithoutTextures() {
-        for (int i = 0; i < hostScene_.triangles.size(); i++) {
-            deviceLoadTriangle<<<1, 1>>>(
-                scene_.d_list, 
-                hostScene_.triangles[i], 
-                i,
-                nullptr
-            );
-            checkCudaErrors(cudaGetLastError());
-            checkCudaErrors(cudaDeviceSynchronize());
-        }
+        // for (int i = 0; i < hostScene_.triangles.size(); i++) {
+        //     deviceLoadTriangle<<<1, 1>>>(
+        //         scene_.d_list, 
+        //         hostScene_.triangles[i], 
+        //         i,
+        //         nullptr
+        //     );
+        //     checkCudaErrors(cudaGetLastError());
+        //     checkCudaErrors(cudaDeviceSynchronize());
+        // }
     }
 
 
