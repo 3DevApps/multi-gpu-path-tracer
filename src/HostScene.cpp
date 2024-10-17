@@ -68,6 +68,28 @@ glm::mat4 convertMatrix(const aiMatrix4x4 &m) {
     return ret;
 }
 
+void HostScene::loadMaterials(const aiScene *scene) {
+    if (scene->HasMaterials()) {
+        for (unsigned int i = 0; i < scene->mNumMaterials; ++i) {
+            aiMaterial* material = scene->mMaterials[i];
+            aiString name;
+            material->Get(AI_MATKEY_NAME, name);
+
+            auto mat = std::make_shared<HostMaterial>(material, textureDataCache_, resourcePath_);
+            materials.push_back(mat);
+            // Only base color for now
+            // auto texFound = scene->mMaterials[i]->GetTexture(aiTextureType_BASE_COLOR, i, &name);
+
+            // if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+            //     aiString path;
+            //     if (material->GetTexture(aiTextureType_DIFFUSE, 0, &path, NULL, NULL, NULL, NULL, NULL) == AI_SUCCESS) {
+            //         std::string fullPath = path.data;
+            //     }
+            // }
+        }
+    }
+}
+
 
 
 HostScene::HostScene(RendererConfig &config, float3 lookFrom, float3 front, float vfov, float hfov)
@@ -95,6 +117,9 @@ HostScene::HostScene(RendererConfig &config, float3 lookFrom, float3 front, floa
         resourcePath_ = objPath.substr(0, objPath.find_last_of('/'));
         preloadTextureFiles(scene, resourcePath_);
 
+        std::cout << "Loading materials" << std::endl; 
+        loadMaterials(scene);
+
         std::cout << "loafing triangles gltf" << std::endl;
         triangles = loadTrianglesGLTF(scene);
     }
@@ -108,6 +133,43 @@ HostScene::HostScene(RendererConfig &config, float3 lookFrom, float3 front, floa
     // std::cout << "Number of triangles: " << triangles.size() << std::endl;
 }
 
+// bool HostScene::processMaterialNew(const aiMaterial *ai_material) {
+//     if (ai_material->GetTextureCount(textureType) <= 0) {
+//         return true;
+//     }
+
+//     for (aiTextureType textureType = 0; textureType <= AI_TEXTURE_TYPE_MAX; textureType++) {
+//         for (size_t i = 0; i < ai_material->GetTextureCount(textureType); i++) {
+//             aiTextureMapMode texMapMode[2];  // [u, v] //only clamp
+//             aiString texPath;
+//             aiReturn retStatus = ai_material->GetTexture(textureType, i, &texPath, nullptr, nullptr, nullptr, nullptr, &texMapMode[0]);
+
+//             if (retStatus != aiReturn_SUCCESS || texPath.length == 0) {
+//                 std::cout << "load texture type=" << textureType << "failed with return value=" << retStatus  << "texPath: " << texPath.C_Str() << std::endl;
+//                 continue;
+//             }
+
+//             std::string absolutePath = resourcePath_ + "/" + texPath.C_Str();
+//             if (textureDataCache_.find(absolutePath) == textureDataCache_.end()) {
+//             std::cout << "Texture not loaded, path: " << absolutePath;
+//             return false;
+//             }
+
+//             auto tex = textureDataCache_[absolutePath];
+//             switch (textureType) {
+//                 case aiTextureType_BASE_COLOR:
+//                 case aiTextureType_DIFFUSE:
+//                     triangle.textureIdx = tex->index;
+//                     break;
+//                 default:
+//                     // std::cout << "Texture type unsupported" << std::endl;
+//                     return false;  
+//             }
+//         }
+//     }
+// }
+
+
 bool HostScene::processMaterial(const aiMaterial *ai_material, aiTextureType textureType, Triangle &triangle) {
     if (ai_material->GetTextureCount(textureType) <= 0) {
         return true;
@@ -117,9 +179,8 @@ bool HostScene::processMaterial(const aiMaterial *ai_material, aiTextureType tex
         aiTextureMapMode texMapMode[2];  // [u, v] //only clamp
         aiString texPath;
         aiReturn retStatus = ai_material->GetTexture(textureType, i, &texPath, nullptr, nullptr, nullptr, nullptr, &texMapMode[0]);
-
         if (retStatus != aiReturn_SUCCESS || texPath.length == 0) {
-            std::cout << "load texture type=" << textureType << "failed with return value=" << retStatus  << "texPath: " << texPath.C_Str() << std::endl;
+            std::cout << "load texture type=" << textureType << "texPath: " << texPath.C_Str() << "idk material" << std::endl;
             continue;
         }
 
@@ -174,6 +235,7 @@ bool HostScene::processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, std:
             }
         }
 
+        triangle.materialIdx = ai_mesh->mMaterialIndex;
         if (ai_mesh->mMaterialIndex >= 0) {
             const aiMaterial *material = ai_scene->mMaterials[ai_mesh->mMaterialIndex];
 
@@ -208,6 +270,8 @@ bool HostScene::processNode(const aiNode *ai_node, const aiScene *ai_scene, std:
         std::cout << "node empty" << std::endl;
         return false;
     }
+
+
 
 
     // std::cout << "processing node" << std::endl;

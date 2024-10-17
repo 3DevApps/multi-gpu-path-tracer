@@ -15,6 +15,8 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 #include "RendererConfig.h"
+#include <optional>
+#include "HostMaterial.h"
 
 struct CameraParams {
     float3 front;
@@ -46,14 +48,14 @@ struct Vertex {
     float2 texCoords;
 };
 
-struct HostMaterial {
-    material_type type ;
-    float3 color_ambient;
-    float3 color_diffuse;
-    float index_of_refraction;
-    float shininess;
-    int textureIdx;
-};
+// struct HostMaterial {
+//     material_type type ;
+//     float3 color_ambient;
+//     float3 color_diffuse;
+//     float index_of_refraction;
+//     float shininess;
+//     std::optional<int> baseColorTextureIdx;
+// };
 
 struct Triangle {
     Vertex v0;
@@ -123,6 +125,7 @@ public:
     CameraParams cameraParams;
     std::vector<std::shared_ptr<HostTexture>> textures{};
     std::vector<std::vector<std::shared_ptr<HostTexture>>> textures_{AI_TEXTURE_TYPE_MAX};
+    std::vector<std::shared_ptr<HostMaterial>> materials{};
     // std::vector<Texture> textures{};
 
 private:
@@ -146,6 +149,8 @@ private:
 
     std::shared_ptr<HostTexture> loadTextureFile(const std::string &path);
     void preloadTextureFiles(const aiScene *scene, const std::string &resDir);
+
+    void loadMaterials(const aiScene *ai_scene);
 
     std::unordered_map<std::string, std::shared_ptr<HostTexture>> textureDataCache_;
     std::vector<CameraObserver*> cameraObservers_;

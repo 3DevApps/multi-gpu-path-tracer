@@ -34,10 +34,18 @@ int main(int argc, char** argv) {
     // ArgumentLoader argLoader(argc, argv);
     // argLoader.loadArguments(config);
 
+    std::cout << "TEST" << std::endl;
+
+    auto start_init = std::chrono::high_resolution_clock::now();
+
     HostScene hScene(config, make_float3(0.00, 0.0, 0.05), make_float3(0.0, 0.0, 0.0));
+
+    auto stop_init = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop_init - start_init);
+    std::cout << "initializing in: " << duration.count() << "ms" << std::endl;
     
     /*
-    changing parameters:
+    changing parameters:./bu
     manager.setSamplesPerPixel(30);
     manager.setRecursionDepth(5);
     manager.setGpuAndStreamNumber(1, 6);
@@ -66,9 +74,6 @@ int main(int argc, char** argv) {
 
 
     RenderManager manager(config, hScene);
-
-    auto start_init = std::chrono::high_resolution_clock::now();
-    auto stop_init = std::chrono::high_resolution_clock::now();
 
     while (!renderer.shouldStopRendering()) {
         

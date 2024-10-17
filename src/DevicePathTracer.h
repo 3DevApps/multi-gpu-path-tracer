@@ -33,6 +33,7 @@ struct Scene {
     hitable_list **d_world = nullptr;
     camera **d_camera = nullptr;
     std::vector<DeviceTexturePointers> texturePointers{};
+    std::vector<material**> materialPointers{}; 
 };
 
 /**
@@ -148,27 +149,28 @@ __global__ void free_camera(camera **d_camera) {
         
 }
 
-__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index, BaseColorTexture** texture) {
+__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index, material** mat) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-        material* mat;
-        if (hTriangle.material_params.type == LAMBERTIAN) {
-            mat = new lambertian(hTriangle.material_params.color_ambient);
-        }
-        else if (hTriangle.material_params.type == METAL) {
-            mat = new metal(hTriangle.material_params.color_ambient, hTriangle.material_params.shininess);
-        }
-        else if (hTriangle.material_params.type == DIELECTRIC) {
-            mat = new dielectric(hTriangle.material_params.index_of_refraction);
-        }
-        else if (hTriangle.material_params.type == DIFFUSE_LIGHT) {
-            mat = new diffuse_light(hTriangle.material_params.color_diffuse);
-        } 
-        else {
-            // mat = new lambertian(hTriangle.material_params.color_ambient);
-            mat = new UniversalMaterial(make_float3(1, 1, 1), *texture);
-            // printf("TESTING if works %ld \n", mat);
-        }
-        d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
+        // material* mat;
+        // if (hTriangle.material_params.type == LAMBERTIAN) {
+        //     mat = new lambertian(hTriangle.material_params.color_ambient);
+        // }
+        // else if (hTriangle.material_params.type == METAL) {
+        //     mat = new metal(hTriangle.material_params.color_ambient, hTriangle.material_params.shininess);
+        // }
+        // else if (hTriangle.material_params.type == DIELECTRIC) {
+        //     mat = new dielectric(hTriangle.material_params.index_of_refraction);
+        // }
+        // else if (hTriangle.material_params.type == DIFFUSE_LIGHT) {
+        //     mat = new diffuse_light(hTriangle.material_params.color_diffuse);
+        // } 
+        // else {
+        //     // mat = new lambertian(hTriangle.material_params.color_ambient);
+        //     mat = new UniversalMaterial(make_float3(1, 1, 1), *texture);
+        //     // printf("TESTING if works %ld \n", mat);
+        // }
+        // mat = new lambertian(hTriangle.material_params.color_ambient);
+        d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, *mat);
     }
 }
 
@@ -182,6 +184,12 @@ __global__ void deviceInitTexture(BaseColorTexture** texture, int width, int hei
 __global__ void deviceFreeTexture(BaseColorTexture** texture) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
         delete *texture;
+    }
+}
+
+__global__ void deviceInitMaterial(material** material, BaseColorTexture** texture) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        *material = new UniversalMaterial(make_float3(1, 1, 1), *texture);
     }
 }
 
@@ -269,6 +277,18 @@ public:
         }
     }
 
+    void loadMaterials() {
+        for (int i = 0; i < hostScene_.materials.size(); i++) {
+            int textureIdx = hostScene_.materials[i]->baseColorTextureIdx;
+            material** mat;
+            checkCudaErrors(cudaMalloc((void**)&mat, sizeof(material*)));
+            scene_.materialPointers.push_back(mat);
+            deviceInitMaterial<<<1, 1>>>(mat, scene_.texturePointers[textureIdx].texture);
+            checkCudaErrors(cudaGetLastError());
+            checkCudaErrors(cudaDeviceSynchronize());
+        }
+    }
+
     void clearTextures() {
         for (int i = 0; i < scene_.texturePointers.size(); i++) {
             cudaFree(scene_.texturePointers[i].texture);
@@ -279,14 +299,27 @@ public:
         scene_.texturePointers = {};
     }
 
+    // void loadTrianglesWithTextures() {
+    //     for (int i = 0; i < hostScene_.triangles.size(); i++) {
+    //         // std::cout << "index" << scene_.texturePointers.size() << ", index: " << hostScene_.triangles[i].textureIdx << std::endl; 
+    //         deviceLoadTriangle<<<1, 1>>>(
+    //             scene_.d_list, 
+    //             hostScene_.triangles[i], 
+    //             i,
+    //             scene_.texturePointers[hostScene_.triangles[i].textureIdx].texture
+    //         );
+    //         checkCudaErrors(cudaGetLastError());
+    //         checkCudaErrors(cudaDeviceSynchronize());
+    //     }
+    // }
+
     void loadTrianglesWithTextures() {
         for (int i = 0; i < hostScene_.triangles.size(); i++) {
-            // std::cout << "index" << scene_.texturePointers.size() << ", index: " << hostScene_.triangles[i].textureIdx << std::endl; 
             deviceLoadTriangle<<<1, 1>>>(
                 scene_.d_list, 
                 hostScene_.triangles[i], 
                 i,
-                scene_.texturePointers[hostScene_.triangles[i].textureIdx].texture
+                scene_.materialPointers[hostScene_.triangles[i].materialIdx]
             );
             checkCudaErrors(cudaGetLastError());
             checkCudaErrors(cudaDeviceSynchronize());
@@ -326,17 +359,25 @@ public:
         if (!scene_.texturePointers.empty()) {
             clearTextures();
         }
+
+        if (!scene_.materialPointers.empty()) {
+            //
+        }
         
         checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(hitable*)));
         checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
 
         if (!hostScene_.textures.empty()) {
             loadTextures();
+            loadMaterials();
             loadTrianglesWithTextures();
         }
         else {
             loadTrianglesWithoutTextures();
         }
+
+
+        
 
         create_world<<<1,1>>>(scene_.d_world, scene_.d_list, hostScene_.triangles.size());
         checkCudaErrors(cudaGetLastError());
