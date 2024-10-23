@@ -5,7 +5,6 @@
 
 class KeyboardEventHandler: EventHandler {
     public:
-        // KeyboardEventHandler(HostScene &hScene) : hScene(hScene) {};
         KeyboardEventHandler(CameraParams &cameraParams) : cameraParams(cameraParams) {};
 
         void handleEvent(const std::string& message) override {
@@ -15,38 +14,28 @@ class KeyboardEventHandler: EventHandler {
 
             if (command == "FORWARD") {
                 auto speed = std::stof(parsedRawData);
-                // hScene.cameraParams.lookFrom += speed * hScene.cameraParams.front;
                 cameraParams.lookFrom += speed * cameraParams.front;
             } else if (command == "BACKWARD") {
                 auto speed = std::stof(parsedRawData);
-                // hScene.cameraParams.lookFrom -= speed * hScene.cameraParams.front;
                 cameraParams.lookFrom -= speed * cameraParams.front;
             } else if (command == "LEFT") {
                 auto speed = std::stof(parsedRawData);
-                // hScene.cameraParams.lookFrom += speed * cross(hScene.cameraParams.front, make_float3(0.0f, -1.0f, 0.0f));
                 cameraParams.lookFrom += speed * cross(cameraParams.front, make_float3(0.0f, -1.0f, 0.0f));
             } else if (command == "RIGHT") {
                 auto speed = std::stof(parsedRawData);
-                // hScene.cameraParams.lookFrom += speed * cross(hScene.cameraParams.front, make_float3(0.0f, 1.0f, 0.0f));
                 cameraParams.lookFrom += speed * cross(cameraParams.front, make_float3(0.0f, 1.0f, 0.0f));
             } else if (command == "UP") {
                 auto speed = std::stof(parsedRawData);
-                // hScene.cameraParams.lookFrom += speed * cross(hScene.cameraParams.front, make_float3(-1.0f, 0.0f, 0.0f));
                 cameraParams.lookFrom += speed * cross(cameraParams.front, make_float3(-1.0f, 0.0f, 0.0f));
             } else if (command == "DOWN") {
                 auto speed = std::stof(parsedRawData);
-                // hScene.cameraParams.lookFrom += speed * cross(hScene.cameraParams.front, make_float3(1.0f, 0.0f, 0.0f));
                 cameraParams.lookFrom += speed * cross(cameraParams.front, make_float3(1.0f, 0.0f, 0.0f));
             } else if (command == "FOV-") {
-                // hScene.cameraParams.vfov += 1.0f;
-                // hScene.cameraParams.hfov += 1.0f;
                 cameraParams.vfov += 1.0f;
                 cameraParams.hfov += 1.0f;
             } else if (command == "FOV+") {
                 cameraParams.vfov -= 1.0f;
                 cameraParams.hfov -= 1.0f;
-                // hScene.cameraParams.vfov -= 1.0f;
-                // hScene.cameraParams.hfov -= 1.0f;
             } 
         };
         

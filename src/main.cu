@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     HostScene hScene = sceneLoader.load(config.path);
     
     /*
-    changing parameters:./bu
+    changing parameters:
     manager.setSamplesPerPixel(30);
     manager.setRecursionDepth(5);
     manager.setGpuAndStreamNumber(1, 6);
