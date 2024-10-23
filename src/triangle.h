@@ -10,16 +10,13 @@
 #include "material.h"
 #include "HostScene.h"
 
-// class triangle: public hitable
 class triangle {
 public:
-    __device__ __host__ void init(Vertex v0, Vertex v1, Vertex v2, UniversalMaterial *mat_ptr) {
-        v0_ = v0; 
-        v1_ = v1; 
-        v2_ = v2; 
-        mat_ptr_ = mat_ptr;
-    }
-
+    triangle(Vertex v0, Vertex v1, Vertex v2, UniversalMaterial *mat_ptr) : 
+        v0_{v0}, 
+        v1_{v1}, 
+        v2_{v2}, 
+        mat_ptr_{mat_ptr} {}
     __device__ bool hit(const ray& r, interval ray_t, hit_record& rec) const;
 
     Vertex v0_, v1_, v2_;

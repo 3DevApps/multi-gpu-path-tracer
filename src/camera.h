@@ -6,6 +6,7 @@
 #include "interval.h"
 #include "bvh.h"
 #include "HostScene.h"
+#include "CameraParams.h"
 
 /**
 * @brief Represents a camera in a 3D scene.

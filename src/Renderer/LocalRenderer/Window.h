@@ -14,6 +14,7 @@
 #include <string>
 #include <iostream>
 #include "../../HostScene.h"
+#include "../../CameraParams.h"
 
 enum class MouseButton {
     Left,

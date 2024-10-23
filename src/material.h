@@ -36,20 +36,11 @@ class material {
     }
 };
 
-// class UniversalMaterial : public material {
 class UniversalMaterial {
 public:
-    // __device__ UniversalMaterial(
-    //     float3 baseColorFactor,
-    //     BaseColorTexture* baseColorTexture
-    // ) : baseColorFactor_{baseColorFactor},
-    //     baseColorTexture_{baseColorTexture} {}
-
-    __host__ __device__ void init(float3 baseColorFactor, BaseColorTexture* baseColorTexture) {
-        baseColorFactor_ = baseColorFactor;
-        baseColorTexture_ = baseColorTexture;
-    }
-
+    UniversalMaterial(float3 baseColorFactor, BaseColorTexture* baseColorTexture) : 
+        baseColorFactor_{baseColorFactor},
+        baseColorTexture_{baseColorTexture} {}
 
     __device__ bool scatter( 
         const ray& r_in, 
@@ -64,7 +55,6 @@ public:
             scatter_direction = rec.normal;
         }
         scattered = ray(rec.p, scatter_direction);
-        // attenuation = albedo;
 
         attenuation = baseColorTexture_->value(rec.texCoord, rec.p);
         return true;
@@ -153,7 +143,8 @@ class dielectric : public material {
             else
                 scattered = ray(rec.p, refracted);
             return true;
-        }       
+        }      
+         
         // __device__ virtual bool scatter(
         // const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState *local_rand_state) 
         // const override {

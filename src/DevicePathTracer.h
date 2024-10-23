@@ -14,6 +14,7 @@
 #include "bvh.h"
 #include "RendererConfig.h"
 #include "Framebuffer.h"
+#include <thrust/device_vector.h>
 
 struct RenderTask {
     int width;
@@ -22,20 +23,12 @@ struct RenderTask {
     int offset_y;
 };
 
-struct DeviceTexturePointers {
-    float3* textureData;
-    // BaseColorTexture** texture;
-    BaseColorTexture* texture; 
-};
-
 struct Scene {
-    triangle *d_list = nullptr;
-    // bvh_node **d_world = nullptr;
     hitable_list **d_world = nullptr;
     camera **d_camera = nullptr;
-    std::vector<DeviceTexturePointers> texturePointers{};
-    // std::vector<material**> materialPointers{};
-    std::vector<UniversalMaterial*> materialPointers{}; 
+    thrust::device_vector<BaseColorTexture> textures{}; 
+    thrust::device_vector<UniversalMaterial> materials{};
+    thrust::device_vector<triangle> faces{}; 
 };
 
 /**
@@ -129,15 +122,7 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(triangle *d_list, hitable_list **d_world, int d_list_size) {
-    // free(d_list);
-    // for (int i = 0; i < d_list_size; i++) {
-        // if (d_list[i]) {
-        //     delete d_list[i];
-        //     d_list[i] = nullptr;
-        // }
-    // }
-
+__global__ void free_world(hitable_list **d_world) {
     if (*d_world) {
         delete *d_world; 
         *d_world = nullptr;
@@ -145,85 +130,11 @@ __global__ void free_world(triangle *d_list, hitable_list **d_world, int d_list_
 }
 
 __global__ void free_camera(camera **d_camera) {
-    if (*d_camera) {
-        delete *d_camera;
-        *d_camera = nullptr;
-    }
-        
+    // if (*d_camera) {
+    //     delete *d_camera;
+    //     *d_camera = nullptr;
+    // }  
 }
-
-__global__ void deviceLoadTriangle(triangle **d_list, Triangle hTriangle, int index, UniversalMaterial* mat) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        // material* mat;
-        // if (hTriangle.material_params.type == LAMBERTIAN) {
-        //     mat = new lambertian(hTriangle.material_params.color_ambient);
-        // }
-        // else if (hTriangle.material_params.type == METAL) {
-        //     mat = new metal(hTriangle.material_params.color_ambient, hTriangle.material_params.shininess);
-        // }
-        // else if (hTriangle.material_params.type == DIELECTRIC) {
-        //     mat = new dielectric(hTriangle.material_params.index_of_refraction);
-        // }
-        // else if (hTriangle.material_params.type == DIFFUSE_LIGHT) {
-        //     mat = new diffuse_light(hTriangle.material_params.color_diffuse);
-        // } 
-        // else {
-        //     // mat = new lambertian(hTriangle.material_params.color_ambient);
-        //     mat = new UniversalMaterial(make_float3(1, 1, 1), *texture);
-        //     // printf("TESTING if works %ld \n", mat);
-        // }
-        // mat = new lambertian(hTriangle.material_params.color_ambient);
-        // d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
-        d_list[index] = new triangle();
-        d_list[index]->init(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
-
-    }
-}
-
-
-// __global__ void deviceInitTexture(BaseColorTexture** texture, int width, int height, float3 *tex_data) {
-//     if (threadIdx.x == 0 && blockIdx.x == 0) {
-//         // *texture = new BaseColorTexture(width, height, tex_data);
-//         *texture = new BaseColorTexture();
-//         (*texture)->init(width, height, tex_data);
-//     }
-// }
-
-// __global__ void deviceInitTexture(BaseColorTexture** texture, int width, int height, float3 *tex_data, BaseColorTexture* textureDevice) {
-//     if (threadIdx.x == 0 && blockIdx.x == 0) {
-//         // *texture = new BaseColorTexture(width, height, tex_data);
-//         *texture = textureDevice;
-//         // (*texture)->init(width, height, tex_data);
-//     }
-// }
-
-
-// __global__ void deviceFreeTexture(BaseColorTexture** texture) {
-//     if (threadIdx.x == 0 && blockIdx.x == 0) {
-//         delete *texture;
-//     }
-// }
-
-// __global__ void deviceFreeTexture(BaseColorTexture* texture) {
-//     if (threadIdx.x == 0 && blockIdx.x == 0) {
-//         delete texture;
-//     }
-// }
-
-// __global__ void deviceInitMaterial(material** material, BaseColorTexture** texture) {
-//     if (threadIdx.x == 0 && blockIdx.x == 0) {
-//         *material = new UniversalMaterial(make_float3(1, 1, 1), *texture);
-//     }
-// }
-
-// __global__ void deviceInitMaterial(UniversalMaterial** material, BaseColorTexture* texture, UniversalMaterial *deviceMat) {
-//     if (threadIdx.x == 0 && blockIdx.x == 0) {
-//         // *material = new UniversalMaterial(make_float3(1, 1, 1), texture);
-//         // *material = new UniversalMaterial();
-//         // (*material)->init(make_float3(1, 1, 1), texture);
-//         *material = deviceMat;
-//     }
-// }
 
 class DevicePathTracer {
 public:
@@ -233,13 +144,15 @@ public:
             unsigned int recursionDepth,
             dim3 threadBlockSize,
             HostScene& hostScene,
-            std::shared_ptr<Framebuffer> framebuffer) : 
+            std::shared_ptr<Framebuffer> framebuffer,
+            CameraParams& cameraParams) : 
             device_idx_{device_idx},
             samplesPerPixel_{samplesPerPixel},
             recursionDepth_{recursionDepth},
             hostScene_{hostScene},
             threadBlockSize_{threadBlockSize}, 
-            framebuffer_{framebuffer} {
+            framebuffer_{framebuffer}, 
+            cameraParams_{cameraParams} {
         
         cudaSetDevice(device_idx_);
         checkCudaErrors(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 2000000000)); 
@@ -260,7 +173,7 @@ public:
             samplesPerPixel_,
             scene_.d_camera,
             scene_.d_world,
-            hostScene_.cameraParams,
+            cameraParams_,
             recursionDepth_,
             d_rand_state_
         );
@@ -294,152 +207,77 @@ public:
     }
 
     void loadTextures() {
-        for (int i = 0; i < hostScene_.textures.size(); i++) {
+        scene_.textures = {};
+        for (const auto& texture : hostScene_.textures) {
             float3* d_tex;
-            checkCudaErrors(cudaMalloc((void **)&d_tex, hostScene_.textures[i]->width() * hostScene_.textures[i]->height() * sizeof(float3)));
-            cudaMemcpy(d_tex, hostScene_.textures[i]->data, hostScene_.textures[i]->width() * hostScene_.textures[i]->height() * sizeof(float3), cudaMemcpyHostToDevice);
+            checkCudaErrors(cudaMalloc(
+                (void **)&d_tex, 
+                texture.width * texture.height * sizeof(float3)
+            ));
 
-            //should be done better, using unified type instead of host - wszytsko w initie ogolnego typu dla tekstur
-            BaseColorTexture textureLocal;
-            BaseColorTexture* textureDevice;
-            textureLocal.init(hostScene_.textures[i]->width(), hostScene_.textures[i]->height(), d_tex);
-            checkCudaErrors(cudaMalloc((void**)&textureDevice, sizeof(BaseColorTexture)));
-            checkCudaErrors(cudaMemcpy(textureDevice, &textureLocal, sizeof(BaseColorTexture), cudaMemcpyHostToDevice));
+            cudaMemcpy(
+                d_tex, 
+                texture.data.data(), 
+                texture.width * texture.height * sizeof(float3), 
+                cudaMemcpyHostToDevice
+            );
 
-            scene_.texturePointers.push_back({d_tex, textureDevice});
+            BaseColorTexture tex(
+                texture.width,
+                texture.height,
+                d_tex
+            );
+
+            scene_.textures.push_back(tex);
         }
     }
 
     void loadMaterials() {
-        for (int i = 0; i < hostScene_.materials.size(); i++) {
-            int textureIdx = hostScene_.materials[i]->baseColorTextureIdx;
-            // UniversalMaterial** mat;
-            // checkCudaErrors(cudaMalloc((void**)&mat, sizeof(UniversalMaterial*)));
-
-            UniversalMaterial matLocal;
-            UniversalMaterial* deviceMat;
-            matLocal.init(make_float3(1, 1, 1), scene_.texturePointers[textureIdx].texture);
-            checkCudaErrors(cudaMalloc((void**)&deviceMat, sizeof(UniversalMaterial)));
-            checkCudaErrors(cudaMemcpy(deviceMat, &matLocal, sizeof(UniversalMaterial), cudaMemcpyHostToDevice));
-            
-            // deviceInitMaterial<<<1, 1>>>(mat, scene_.texturePointers[textureIdx].texture, deviceMat);
-            // checkCudaErrors(cudaGetLastError());
-            // checkCudaErrors(cudaDeviceSynchronize());
-            scene_.materialPointers.push_back(deviceMat);
+        scene_.materials = {};
+        for (const auto& material : hostScene_.materials) {
+            int textureIdx = material.baseColorTextureIdx;
+            UniversalMaterial mat(
+                material.baseColorFactor,
+                thrust::raw_pointer_cast(&scene_.textures[textureIdx])
+            );
+            scene_.materials.push_back(mat);
         }
     }
-
-    void clearTextures() {
-        for (int i = 0; i < scene_.texturePointers.size(); i++) {
-            cudaFree(scene_.texturePointers[i].texture);
-            cudaFree(scene_.texturePointers[i].textureData); 
-
-            // deviceFreeTexture<<<1, 1>>>(scene_.texturePointers[i].texture);
-        }
-        scene_.texturePointers = {};
-    }
-
-    // void loadTrianglesWithTextures() {
-    //     for (int i = 0; i < hostScene_.triangles.size(); i++) {
-    //         // std::cout << "index" << scene_.texturePointers.size() << ", index: " << hostScene_.triangles[i].textureIdx << std::endl; 
-    //         deviceLoadTriangle<<<1, 1>>>(
-    //             scene_.d_list, 
-    //             hostScene_.triangles[i], 
-    //             i,
-    //             scene_.texturePointers[hostScene_.triangles[i].textureIdx].texture
-    //         );
-    //         checkCudaErrors(cudaGetLastError());
-    //         checkCudaErrors(cudaDeviceSynchronize());
-    //     }
-    // }
 
     void loadTrianglesWithTextures() {
-        triangle* localTriangles = new triangle[hostScene_.triangles.size()];
-        for (int i = 0; i < hostScene_.triangles.size(); i++) {
-                // localTriangles[i].init(
-                //     hostScene_.triangles[i].v0,
-                //     hostScene_.triangles[i].v1,
-                //     hostScene_.triangles[i].v2, 
-                //     0
-                //     // scene_.materialPointers[hostScene_.triangles[i].materialIdx]
-                // );
-            // deviceLoadTriangle<<<1, 1>>>(
-            //     scene_.d_list, 
-            //     hostScene_.triangles[i], 
-            //     i,
-            //     scene_.materialPointers[hostScene_.triangles[i].materialIdx]
-            // );
-            // checkCudaErrors(cudaGetLastError());
-            // checkCudaErrors(cudaDeviceSynchronize());
+        scene_.faces = {};
+        for (const auto& hTriangle : hostScene_.triangles) {
+            triangle t(
+                hTriangle.v0,
+                hTriangle.v1,
+                hTriangle.v2,
+                thrust::raw_pointer_cast(&scene_.materials[hTriangle.materialIdx])
+            ); 
+            scene_.faces.push_back(t);
         }
-
-        // checkCudaErrors(cudaMalloc(
-        //     (void**)&scene_.d_list, 
-        //     hostScene_.triangles.size() * sizeof(triangle)
-        // ));
-
-        // checkCudaErrors(cudaMemcpy(
-        //     scene_.d_list, 
-        //     &localTriangles, 
-        //     hostScene_.triangles.size() * sizeof(triangle), 
-        //     cudaMemcpyHostToDevice
-        // ));
     }
-
-    void loadTrianglesWithoutTextures() {
-        // for (int i = 0; i < hostScene_.triangles.size(); i++) {
-        //     deviceLoadTriangle<<<1, 1>>>(
-        //         scene_.d_list, 
-        //         hostScene_.triangles[i], 
-        //         i,
-        //         nullptr
-        //     );
-        //     checkCudaErrors(cudaGetLastError());
-        //     checkCudaErrors(cudaDeviceSynchronize());
-        // }
-    }
-
 
     // To be called when scene triangles change
     void reloadWorld() {
         cudaSetDevice(device_idx_);
 
-        if (scene_.d_list != nullptr && scene_.d_world != nullptr) {
+        if (scene_.d_world != nullptr) {
             // free previouse device pointer
-            free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, hostScene_.triangles.size());
+            free_world<<<1, 1>>>(scene_.d_world);
             checkCudaErrors(cudaGetLastError());
             checkCudaErrors(cudaDeviceSynchronize());
 
-            checkCudaErrors(cudaFree(scene_.d_list));
             checkCudaErrors(cudaFree(scene_.d_world));
             scene_.d_world = nullptr;
-            scene_.d_list = nullptr;
-        }
-
-        if (!scene_.texturePointers.empty()) {
-            clearTextures();
-        }
-
-        if (!scene_.materialPointers.empty()) {
-            //
         }
         
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(triangle*)));
         checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
 
-        if (!hostScene_.textures.empty()) {
-            loadTextures();
-            loadMaterials();
-            loadTrianglesWithTextures();
-        }
-        else {
-            loadTrianglesWithoutTextures();
-        }
+        loadTextures();
+        loadMaterials();
+        loadTrianglesWithTextures();
 
-
-        
-
-        create_world<<<1,1>>>(scene_.d_world, scene_.d_list, hostScene_.triangles.size());
+        create_world<<<1,1>>>(scene_.d_world, thrust::raw_pointer_cast(&scene_.faces[0]), scene_.faces.size());
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
@@ -476,17 +314,13 @@ public:
 
     ~DevicePathTracer() {
         cudaSetDevice(device_idx_);
-        free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, number_of_faces_);
+        free_world<<<1, 1>>>(scene_.d_world);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
 
         free_camera<<<1, 1>>>(scene_.d_camera);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
-
-        if (!scene_.texturePointers.empty()) {
-            clearTextures();
-        }
     }
 
 private:
@@ -501,6 +335,7 @@ private:
     unsigned int samplesPerPixel_;
     unsigned int recursionDepth_;
     std::shared_ptr<Framebuffer> framebuffer_;
+    CameraParams& cameraParams_;
 };
 
 

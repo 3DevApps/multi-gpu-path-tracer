@@ -20,22 +20,14 @@ class SolidColorTexture : public Texture {
     float3 albedo;
 };
 
-// class BaseColorTexture : public Texture {
 class BaseColorTexture {
   public:
-    // __device__ BaseColorTexture(int width, int height, float3* tex_data) {
-    //   data_ = tex_data;
-    //   width_ = width;
-    //   height_ = height;
-    // }
+    BaseColorTexture(int width, int height, float3* tex_data) :
+      data_{tex_data},
+      width_{width},
+      height_{height} {}
 
-    __device__ __host__ void init(int width, int height, float3* tex_data) {
-      data_ = tex_data;
-      width_ = width;
-      height_ = height;
-    }
-
-    __device__ float3 value(float2 texCoords, const float3& p) const { //override {
+    __device__ float3 value(float2 texCoords, const float3& p) const {
         if (height_ <= 0) {
           return make_float3((float)242 / 255, (float)45 / 255, (float)27 / 255);
         } 
@@ -77,7 +69,7 @@ class BaseColorTexture {
         return data_[y * width_ + x]; 
     }
 
-     float3 *data_ = nullptr;
+     float3* data_ = nullptr;
      int width_ = 0;
      int height_ = 0;
 

@@ -10,6 +10,7 @@
 #include "../../PixelDataEncoder/JPEGEncoder.h"
 #include "../../PixelDataEncoder/PNGEncoder.h"
 #include "../../RendererConfig.h"
+#include "../../CameraParams.h"
 
 class RemoteRenderer : public Renderer {
     public:

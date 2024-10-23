@@ -21,20 +21,13 @@
 #include "RendererConfig.h"
 #include "Framebuffer.h"
 
-
-
-class RenderManager : PrimitivesObserver { 
+class RenderManager { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene) : config_{config}, hScene_{hScene}, lk_{m_} {
-        hScene_.registerPrimitivesObserver(this);
+        RenderManager(RendererConfig &config, HostScene &hScene, CameraParams& cameraParams) : config_{config}, hScene_{hScene}, lk_{m_}, cameraParams{cameraParams} {
         newConfig_ = config_;
         renderTasks_ = taskGen_.generateEqualTasks(config.gpuNumber * config.streamsPerGpu, config.resolution.width, config.resolution.height);
         framebuffer_ = std::make_shared<Framebuffer>(config.resolution);
         setup();
-    }
-
-    ~RenderManager() {
-        hScene_.removePrimitivesObserver(this);
     }
 
     void reset() {
@@ -62,7 +55,8 @@ public:
                 config_.recursionDepth, 
                 config_.threadBlockSize, 
                 hScene_, 
-                framebuffer_
+                framebuffer_,
+                cameraParams
             ));
 
             streamThreads_.push_back({}); 
@@ -224,4 +218,5 @@ private:
     RendererConfig newConfig_{};
     bool shouldUpdatePathTracerParams = false;
     bool shouldReloadWorld = false;
+    CameraParams& cameraParams;
 };
