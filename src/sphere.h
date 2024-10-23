@@ -9,14 +9,14 @@ class sphere: public hitable
 {
     public:
         __device__ sphere() {}
-        __device__ sphere(float3 cen, float r,material *m) : center(cen), radius(r), mat_ptr(m){
+        __device__ sphere(float3 cen, float r, UniversalMaterial *m) : center(cen), radius(r), mat_ptr(m){
             float3 rad = make_float3(radius, radius, radius);
             bbox = aabb(center - rad, center + rad);
         };
         __device__ virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const;
         float3 center;
         float radius;
-        material *mat_ptr;
+        UniversalMaterial *mat_ptr;
 };
 __device__ bool sphere::hit(const ray& r,interval ray_t, hit_record& rec) const
 {
