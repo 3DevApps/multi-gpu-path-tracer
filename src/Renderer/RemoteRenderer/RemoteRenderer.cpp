@@ -5,7 +5,9 @@ RemoteRenderer::RemoteRenderer(std::string& jobId, RendererConfig& config)
     pixelData.resize(config.resolution.width * config.resolution.height * 3);
     
     pngPixelDataEncoder = std::make_shared<PNGEncoder>();
-    jpegPixelDataEncoder = std::make_shared<JPEGEncoder>(75);
+    // jpegPixelDataEncoder = std::make_shared<JPEGEncoder>(75); 
+    jpegPixelDataEncoder = std::make_shared<AVIFEncoder>(); 
+
 
     webSocket.setUrl(SERVER_URL + jobId);
     webSocket.setOnMessageCallback(std::bind(&RemoteRenderer::onMessage, this, std::placeholders::_1));
@@ -66,9 +68,13 @@ std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame, bool use
 
     std::vector<uint8_t> outputData;
     auto& pixelDataEncoder = useJpegEncoder ? jpegPixelDataEncoder : pngPixelDataEncoder;
+    auto start = std::chrono::high_resolution_clock::now();
     if (!pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData)){
         outputData.clear();
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Encoding time: " << duration.count() << "ms" << std::endl;
     return outputData;
 }
 

@@ -9,6 +9,7 @@
 #include "../../PixelDataEncoder/PixelDataEncoder.h"
 #include "../../PixelDataEncoder/JPEGEncoder.h"
 #include "../../PixelDataEncoder/PNGEncoder.h"
+#include "../../PixelDataEncoder/AVIFEncoder.h"
 #include "../../RendererConfig.h"
 
 class RemoteRenderer : public Renderer {
