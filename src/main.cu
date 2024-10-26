@@ -1,82 +1,53 @@
-#include <stdio.h>
 #include <iostream>
-#include <float.h>
-#include <fstream>
-#include "semaphore.h"
-#include <mutex>
-#include "Profiling/GPUMonitor.h"
-#include "DevicePathTracer.h"
-#include <chrono>
-#include <cmath>
-#include "SafeQueue.h"
-#include "StreamThread.h"
-#include "HostScene.h"
-#include "Scheduling/TaskGenerator.h"
 #include <vector>
-#include "PixelDataEncoder/PixelDataEncoder.h"
-#include "PixelDataEncoder/JPEGEncoder.h"
-#include "PixelDataEncoder/PNGEncoder.h"
-#include "ArgumentLoader.h"
-#include "RendererConfig.h"
-#include "Framebuffer.h"
-#include "RenderManager.h"
-#include "Renderer/Renderer.h"
-#ifdef USE_LOCAL_RENDERER
-#include "Renderer/LocalRenderer/Window.h"
-#include "Renderer/LocalRenderer/LocalRenderer.h"
-#else
-#include "Renderer/RemoteRenderer/RemoteRenderer.h"
-#include "Renderer/RemoteRenderer/RemoteEventHandlers/RemoteEventHandlers.h"
-#endif
+#include <cassert>
+#include <cuda_runtime.h>
+#include <nvjpeg.h>
+#include <fstream>
 
-int main(int argc, char** argv) {
-    RendererConfig config; 
+int main() {
 
-    ArgumentLoader argLoader(argc, argv);
-    argLoader.loadArguments(config);
+    nvjpegHandle_t nv_handle;
+    nvjpegEncoderState_t nv_enc_state;
+    nvjpegEncoderParams_t nv_enc_params;
+    cudaStream_t stream;
 
-    HostScene hScene(config, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
-    RenderManager manager(config, hScene);
-    /*
-    changing parameters:
-    manager.setSamplesPerPixel(30);
-    manager.setRecursionDepth(5);
-    manager.setGpuAndStreamNumber(1, 6);
-    manager.setResolution({900, 900}); // TODO: make rendered frame resolution independent from window size
-    manager.setThreadBlockSize({16, 16});
+    cudaStreamCreate(&stream);
 
-    hScene.loadTriangles("path/to/obj");
-    hScene.setVFOV(60.0f);
-    hScene.setHFOV(60.0f);
-    hScene.setCameraLookFrom(make_float3(1, 1, 1));
-    hScene.setCameraFront(make_float3(1, 1, 1));
-    */
+    // initialize nvjpeg structures
+    nvjpegCreateSimple(&nv_handle);
+    nvjpegEncoderStateCreate(nv_handle, &nv_enc_state, stream);
+    nvjpegEncoderParamsCreate(nv_handle, &nv_enc_params, stream);
 
-    #ifdef USE_LOCAL_RENDERER
-    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", hScene.cameraParams);
-    LocalRenderer localRenderer(window);
-    Renderer &renderer = localRenderer;
-    #else
-    RemoteRenderer remoteRenderer(config.jobId, config);
-    RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene);
-    Renderer &renderer = remoteRenderer;
-    #endif
+    nvjpegImage_t nv_image;
+    // Fill nv_image with image data, let's say 640x480 image in RGB format
+    auto imageBuffer = new unsigned char[640 * 480 * 3];
+    // Set 255 to all pixels
+    for (int i = 0; i < 640 * 480 * 3; i++) {
+        imageBuffer[i] = 255;
+    }
+    
+    nv_image.channel[0] = imageBuffer;
+    nv_image.pitch[0] = 3 * 640;
 
-    MonitorThread monitor_thread_obj(renderer);
-    std::thread monitor_thread(std::ref(monitor_thread_obj));
+    // Compress image
+    nvjpegEncodeImage(nv_handle, nv_enc_state, nv_enc_params,
+        &nv_image, NVJPEG_INPUT_RGB, 640, 480, stream);
 
-    while (!renderer.shouldStopRendering()) {
+    // get compressed stream size
+    size_t length;
+    nvjpegEncodeRetrieveBitstream(nv_handle, nv_enc_state, NULL, &length, stream);
+    // get stream itself
+    cudaStreamSynchronize(stream);
+    unsigned char *data = new unsigned char[length];
+    nvjpegEncodeRetrieveBitstream(nv_handle, nv_enc_state, data, &length, stream);
 
-        auto start = std::chrono::high_resolution_clock::now();
-        manager.renderFrame();
-        auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-        std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
-        renderer.renderFrame(manager.getCurrentFrame());
-	}
+    // Save compressed stream to file
+    std::ofstream file("compressed.jpg", std::ios::binary);
+    file.write(reinterpret_cast<char*>(data), length);
+    file.close();
 
-    manager.reset();
-    monitor_thread_obj.safeTerminate();
-    monitor_thread.join();
+
+
     return 0;
 }
