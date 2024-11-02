@@ -21,7 +21,8 @@ void H264Encoder::initEncoder(const int width, const int height)
     param.b_repeat_headers = 1; // Force SPS/PPS on keyframes
     param.b_annexb = 1;         // Use Annex B format with start codes
 
-    x264_param_apply_profile(&param, "baseline");
+    x264_param_apply_profile(&param, "high");
+    param.i_level_idc = 52;
 
     encoder = x264_encoder_open(&param);
     if (!encoder)
@@ -95,6 +96,7 @@ bool H264Encoder::encodePixelData(const std::vector<uint8_t> &pixelData, const i
     return true;
 }
 
+// TODO: call this function in render CUDA kernel.
 void H264Encoder::convertRGBtoI420(const std::vector<uint8_t> &rgbData)
 {
     uint8_t *y = pic_in.img.plane[0];
