@@ -1,24 +1,22 @@
 #include "H264Encoder.h"
-#include <chrono>
 
-H264Encoder::H264Encoder()
+H264Encoder::~H264Encoder()
 {
-    int fps = 30;
-    int width = 400;
-    int height = 400;
+    destroyEncoder();
+}
 
-    this->width = width;
-    this->height = height;
+void H264Encoder::initEncoder(const int width, const int height)
+{
+    int fps = 60;
 
     x264_param_t param;
-    x264_param_default_preset(&param, "medium", "zerolatency");
+    x264_param_default_preset(&param, "veryfast", "zerolatency");
 
     param.i_width = width;
     param.i_height = height;
     param.i_fps_num = fps;
     param.i_fps_den = 1;
     param.i_csp = X264_CSP_I420;
-    param.i_threads = 1;
     param.i_keyint_max = fps;
     param.b_repeat_headers = 1; // Force SPS/PPS on keyframes
     param.b_annexb = 1;         // Use Annex B format with start codes
@@ -35,9 +33,21 @@ H264Encoder::H264Encoder()
     {
         throw std::runtime_error("Failed to allocate picture");
     }
+
+    this->width = width;
+    this->height = height;
 }
 
-H264Encoder::~H264Encoder()
+void H264Encoder::updateEncoderIfNeeded(const int width, const int height)
+{
+    if (this->width != width || this->height != height)
+    {
+        destroyEncoder();
+        initEncoder(width, height);
+    }
+}
+
+void H264Encoder::destroyEncoder()
 {
     if (encoder)
     {
@@ -48,6 +58,7 @@ H264Encoder::~H264Encoder()
 
 bool H264Encoder::encodePixelData(const std::vector<uint8_t> &pixelData, const int width, const int height, std::vector<uint8_t> &outputData)
 {
+    updateEncoderIfNeeded(width, height);
     convertRGBtoI420(pixelData);
 
     x264_nal_t *nals;
@@ -62,7 +73,8 @@ bool H264Encoder::encodePixelData(const std::vector<uint8_t> &pixelData, const i
 
     if (x264_encoder_encode(encoder, &nals, &num_nals, &pic_in, &pic_out) < 0)
     {
-        throw std::runtime_error("Failed to encode frame");
+        std::cout << "Failed to encode frame" << std::endl;
+        return false;
     }
 
     outputData.clear();

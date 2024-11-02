@@ -5,9 +5,8 @@ RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config)
 {
     pixelData.resize(config.resolution.width * config.resolution.height * 3);
 
-    pngPixelDataEncoder = std::make_shared<PNGEncoder>();
-    // jpegPixelDataEncoder = std::make_shared<JPEGEncoder>(75);
-    jpegPixelDataEncoder = std::make_shared<H264Encoder>();
+    snapshotDataEncoder = std::make_shared<PNGEncoder>();
+    frameDataEncoder = std::make_shared<H264Encoder>();
 
     webSocket.setUrl(SERVER_URL + jobId);
     webSocket.setOnMessageCallback(std::bind(&RemoteRenderer::onMessage, this, std::placeholders::_1));
@@ -54,7 +53,7 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr &msg)
     }
 }
 
-std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame, bool useJpegEncoder)
+std::vector<uint8_t> RemoteRenderer::prepareFrame(const uint8_t *frame, const std::shared_ptr<PixelDataEncoder> &pixelDataEncoder)
 {
     int view_width = config.resolution.width;
     int view_height = config.resolution.height;
@@ -77,7 +76,6 @@ std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame, bool use
     }
 
     std::vector<uint8_t> outputData;
-    auto &pixelDataEncoder = useJpegEncoder ? jpegPixelDataEncoder : pngPixelDataEncoder;
     auto start = std::chrono::high_resolution_clock::now();
     if (!pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData))
     {
@@ -85,13 +83,22 @@ std::vector<uint8_t> RemoteRenderer::processFrame(const uint8_t *frame, bool use
     }
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "Encoding time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
-    std::cout << "Output data size: " << outputData.size() << std::endl;
     return outputData;
+}
+
+std::vector<uint8_t> RemoteRenderer::processFrameForStreaming(const uint8_t *frame)
+{
+    return prepareFrame(frame, frameDataEncoder);
+}
+
+std::vector<uint8_t> RemoteRenderer::processFrameForSnapshot(const uint8_t *frame)
+{
+    return prepareFrame(frame, snapshotDataEncoder);
 }
 
 void RemoteRenderer::renderFrame(const uint8_t *frame)
 {
-    std::vector<uint8_t> outputData = processFrame(frame);
+    std::vector<uint8_t> outputData = processFrameForStreaming(frame);
     if (!outputData.empty())
     {
         std::string messagePrefix = "JOB_MESSAGE#RENDER#";
@@ -109,7 +116,7 @@ void RemoteRenderer::generateAndSendSnapshotIfNeeded(const uint8_t *frame)
     {
         return;
     }
-    std::vector<uint8_t> outputData = processFrame(frame, false);
+    std::vector<uint8_t> outputData = processFrameForSnapshot(frame);
     if (!outputData.empty())
     {
         std::string messagePrefix = "JOB_MESSAGE#SNAPSHOT#";

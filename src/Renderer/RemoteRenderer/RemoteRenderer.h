@@ -9,8 +9,8 @@
 #include "../../PixelDataEncoder/PixelDataEncoder.h"
 #include "../../PixelDataEncoder/JPEGEncoder.h"
 #include "../../PixelDataEncoder/PNGEncoder.h"
-#include "../../RendererConfig.h"
 #include "../../PixelDataEncoder/H264Encoder.h"
+#include "../../RendererConfig.h"
 
 class RemoteRenderer : public Renderer
 {
@@ -19,7 +19,8 @@ public:
 
     RemoteRenderer(std::string &jobId, RendererConfig &config);
     ~RemoteRenderer();
-    std::vector<uint8_t> processFrame(const uint8_t *frame, bool useJpegEncoder = true);
+    std::vector<uint8_t> processFrameForStreaming(const uint8_t *frame);
+    std::vector<uint8_t> processFrameForSnapshot(const uint8_t *frame);
     void renderFrame(const uint8_t *frame) override;
     void send(const std::string &data) override;
     bool shouldStopRendering() override;
@@ -35,12 +36,13 @@ private:
     std::uint32_t view_width;
     std::uint32_t view_height;
     std::vector<uint8_t> pixelData;
-    std::shared_ptr<PixelDataEncoder> jpegPixelDataEncoder;
-    std::shared_ptr<PixelDataEncoder> pngPixelDataEncoder;
+    std::shared_ptr<PixelDataEncoder> snapshotDataEncoder;
+    std::shared_ptr<PixelDataEncoder> frameDataEncoder;
     bool stopRenderer = false;
     RendererConfig &config;
     bool generateAndSendSnapshotFlag = false;
 
     void onMessage(const ix::WebSocketMessagePtr &msg);
     void generateAndSendSnapshotIfNeeded(const uint8_t *frame);
+    std::vector<uint8_t> prepareFrame(const uint8_t *frame, const std::shared_ptr<PixelDataEncoder> &pixelDataEncoder);
 };
