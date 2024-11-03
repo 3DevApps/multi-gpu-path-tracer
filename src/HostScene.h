@@ -6,167 +6,77 @@
 #include "assimp/Importer.hpp"
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
+#include <iostream>
+#include <vector>
+#include <memory>
+#include <thread>
+#include <mutex>
+#include <unordered_map>
+#include <glm/glm.hpp>
 #include "RendererConfig.h"
-
-struct CameraParams {
-    float3 front;
-    float3 lookFrom;
-    float vfov = 45.0f;
-    float hfov = 45.0f;
-};
+#include <optional>
 
 // Materials supported by the obj loader
 enum material_type {
     LAMBERTIAN,
     METAL,
     DIELECTRIC,
-    DIFFUSE_LIGHT
+    DIFFUSE_LIGHT,
+    UNIVERSAL
 };
 
-struct m_ai_material {
-    material_type type ;
-    float3 color_ambient;
-    float3 color_diffuse;
-    float index_of_refraction;
-    float shininess;
+struct Vertex {
+    float3 position;
+    float2 texCoords;
+};
+
+struct HostMaterial {
+    //TODO Other material params
+    float3 baseColor;
+    std::optional<int> baseColorTextureIdx{};
+    float3 emissiveFactor;
+    std::optional<int> emissiveTextureIdx{};
 };
 
 struct Triangle {
-    float3 v0;
-    float3 v1;
-    float3 v2;
-    m_ai_material material_params;
+    Vertex v0;
+    Vertex v1;
+    Vertex v2;
+    int textureIdx;
+    int materialIdx;
 };
 
-class CameraObserver {
-public:
-    virtual void updateCamera() = 0;
+struct HostTexture {
+    int width;
+    int height;
+    std::vector<float3> data;
 };
 
-class PrimitivesObserver {
-public:
-    virtual void updatePrimitives() = 0;
-};
-
-class HostScene {
-public:
-    HostScene(RendererConfig &config, float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f) 
-    : cameraParams{front, lookFrom}, config(config) {
-        triangles = loadTriangles(config.objPath.c_str());
-    }
-
-    void loadUploadedScene() {
-        std::string objPath = "../files/f" + config.jobId + ".obj";
-        triangles = loadTriangles(objPath.c_str());
-        notifyPrimitivesObservers();
-    }
-
-    void registerPrimitivesObserver(PrimitivesObserver* observer) {
-        primitivesObservers_.push_back(observer);
-    }
-
-    void removePrimitivesObserver(PrimitivesObserver* observer) {
-        auto it = std::find(
-            primitivesObservers_.begin(), 
-            primitivesObservers_.end(), 
-            observer); 
-    
-        if (it != primitivesObservers_.end()) { 
-            primitivesObservers_.erase(it); 
-        } 
-    }
-
+struct HostScene {
     std::vector<Triangle> triangles{};
-    CameraParams cameraParams;
+    std::vector<HostTexture> textures{};
+    std::vector<HostMaterial> materials{};
+};
+
+class SceneLoader {
+public:
+    HostScene load(std::string& path);
 
 private:
     float3 convertToFloat3(aiVector3D &v) {
         return make_float3(v.x, v.y, v.z);
     }
+    std::vector<Triangle> loadTrianglesGLTF(const aiScene *scene);
 
-    std::vector<Triangle> loadTriangles(const char* file_path) {
-        Assimp::Importer importer;
+    HostMaterial processMaterial(const aiMaterial *ai_material);
+    bool processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, std::vector<Triangle> &triangles);
+    bool processNode(const aiNode *ai_node, const aiScene *ai_scene, std::vector<Triangle> &triangles);
+    HostTexture loadTextureFromFile(const aiScene *scene, const std::string& resDir, const std::string& filename);
+    std::vector<HostTexture> loadTextures(const aiScene *scene, const std::string &resDir);
+    std::vector<HostMaterial> loadMaterials(const aiScene *ai_scene);
 
-        const aiScene *scene = importer.ReadFile(file_path, aiProcess_Triangulate | aiProcess_FindDegenerates);
-
-        if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
-            throw std::runtime_error(importer.GetErrorString());
-        }
-
-        int num_materials = scene->mNumMaterials;
-        std::vector<Triangle> triangles; 
-        
-        if (scene->HasMeshes()) {
-            for (unsigned int i = 0; i < scene->mNumMeshes; i++)
-            {
-                const aiMesh* mesh = scene->mMeshes[i];
-                for (unsigned int j = 0; j < mesh->mNumFaces; j++)
-                {
-                    const aiFace& face = mesh->mFaces[j];
-
-                    if (face.mNumIndices != 3)
-                    {
-                        throw std::runtime_error("Face is not a triangle");
-                    }
-
-                    auto v0 = convertToFloat3(mesh->mVertices[face.mIndices[0]]);
-                    auto v1 = convertToFloat3(mesh->mVertices[face.mIndices[1]]);
-                    auto v2 = convertToFloat3(mesh->mVertices[face.mIndices[2]]);
-
-                    aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];      
-
-                    m_ai_material m;
-                    aiString ai_string_name;
-                    material->Get(AI_MATKEY_NAME, ai_string_name);
-
-                    std::string name = ai_string_name.C_Str();
-                    
-                    if (name.rfind("lambertian", 0) != std::string::npos) {
-                        aiColor3D color;
-                        material->Get(AI_MATKEY_COLOR_AMBIENT, color);
-
-                        m.type = LAMBERTIAN;
-                        m.color_ambient = make_float3(color.r, color.g, color.b);
-                    } 
-                    else if (name.rfind("metal", 0) != std::string::npos) {
-                        aiColor3D color;
-                        material->Get(AI_MATKEY_COLOR_AMBIENT, color);
-
-                        float shininess;
-                        material->Get(AI_MATKEY_SHININESS, shininess); // Represented as Ns in the mtl file
-
-                        m.type = METAL;
-                        m.color_ambient = make_float3(color.r, color.g, color.b); 
-                        m.shininess = shininess; 
-                    } 
-                    else if (name.rfind("dielectric", 0) != std::string::npos) {
-                        float index_of_refraction;
-                        material->Get(AI_MATKEY_REFRACTI, index_of_refraction); // Represented as Ni in the mtl file
-                    
-                        m.type = DIELECTRIC;
-                        m.index_of_refraction = index_of_refraction;
-                    }
-                    else if (name.rfind("diffuse_light", 0) != std::string::npos) {
-                        aiColor3D color;
-                        material->Get(AI_MATKEY_COLOR_DIFFUSE, color); // Represented as Kd in the mtl file
-
-                        m.type = DIFFUSE_LIGHT;
-                        m.color_diffuse = make_float3(color.r, color.g, color.b);
-                    }
-                    triangles.push_back(Triangle{v0, v1, v2, std::move(m)});
-                }
-            }
-        }
-        return triangles;
-    }
-
-    void notifyPrimitivesObservers() {
-        for (PrimitivesObserver* observer : primitivesObservers_) {
-            observer->updatePrimitives();
-        }
-    }
-
-    std::vector<CameraObserver*> cameraObservers_;
-    std::vector<PrimitivesObserver*> primitivesObservers_;
-    RendererConfig &config;
+    std::unordered_map<std::string, int> textureDataCache_;
+    std::mutex texCacheMutex_;
+    std::string resourcePath_;
+    Assimp::Importer importer;
 };

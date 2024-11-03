@@ -8,13 +8,14 @@
 #include "KeyboardEventHandler.h"
 #include "../../../HostScene.h"
 #include "../../../RenderManager.h"
+#include "../../../CameraConfig.h"
 
 class RemoteEventHandlers {
     public:
-        RemoteEventHandlers(RemoteRenderer &remoteRenderer, RenderManager& manager, HostScene& hScene) {
-            addEventHandler<MouseMoveEventHandler>(remoteRenderer, hScene.cameraParams);
+        RemoteEventHandlers(RemoteRenderer &remoteRenderer, RenderManager& manager, HostScene& hScene, CameraConfig& cameraConfig) {
+            addEventHandler<MouseMoveEventHandler>(remoteRenderer, cameraConfig);
             addEventHandler<RenderManagerEventHander>(remoteRenderer, remoteRenderer, manager, hScene);
-            addEventHandler<KeyboardEventHandler>(remoteRenderer, hScene);
+            addEventHandler<KeyboardEventHandler>(remoteRenderer, cameraConfig);
         };
         
         template <typename T, typename... Args>

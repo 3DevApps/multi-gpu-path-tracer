@@ -14,6 +14,7 @@
 #include "bvh.h"
 #include "RendererConfig.h"
 #include "Framebuffer.h"
+#include <thrust/device_vector.h>
 
 struct RenderTask {
     int width;
@@ -23,9 +24,11 @@ struct RenderTask {
 };
 
 struct Scene {
-    hitable **d_list = nullptr;
-    bvh_node **d_world = nullptr;
+    bvh **d_world = nullptr;
     camera **d_camera = nullptr;
+    thrust::device_vector<BaseColorTexture> textures{}; 
+    thrust::device_vector<UniversalMaterial> materials{};
+    thrust::device_vector<triangle> faces{}; 
 };
 
 /**
@@ -64,7 +67,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam,bvh_node **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, bvh **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -76,17 +79,17 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
         float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(res.width);
         float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(res.height);
         ray r = (*cam)->get_ray(u, v);
-        col += (*cam)->ray_color(r, world, camParams, recursionDepth, &local_rand_state);
+        col += (*cam)->ray_color(r, world, cameraConfig, recursionDepth, &local_rand_state);
     }
 
-    float3 color_modifier;
+    float3 color_modifier = make_float3(1, 1, 1);
     int device_idx;
     cudaGetDevice(&device_idx);
-    if(device_idx == 0){
-        color_modifier = make_float3(1, 1, 1);
-    }else if(device_idx == 1){
-        color_modifier = make_float3(0.8, 0.4, 1);
-    }
+    // if(device_idx == 0){
+    //     color_modifier = make_float3(1, 1, 1);
+    // }else if(device_idx == 1){
+    //     color_modifier = make_float3(0.8, 0.4, 1);
+    // }
     int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
     fb[3 * pixel_index] = color.x;
     fb[3 * pixel_index + 1] = color.y;
@@ -105,11 +108,11 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(bvh_node **d_world, hitable **d_list, int d_list_size) {
+__global__ void create_world(bvh **d_world, triangle*d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                 
         curandState local_rand_state;
         curand_init(1984, 0, 0, &local_rand_state);                     
-        *d_world  = new bvh_node(d_list, 0, d_list_size, &local_rand_state);      
+        *d_world  = new bvh(d_list, 0, d_list_size, &local_rand_state);      
     }
 }
 
@@ -119,48 +122,10 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(hitable **d_list, bvh_node **d_world, int d_list_size) {
-    for (int i = 0; i < d_list_size; i++) {
-        if (d_list[i]) {
-            delete d_list[i];
-            d_list[i] = nullptr;
-        }
-    }
-
+__global__ void free_world(bvh **d_world) {
     if (*d_world) {
         delete *d_world; 
         *d_world = nullptr;
-    }
-}
-
-__global__ void free_camera(camera **d_camera) {
-    if (*d_camera) {
-        delete *d_camera;
-        *d_camera = nullptr;
-    }
-        
-}
-
-__global__ void deviceLoadTriangle(hitable **d_list, Triangle hTriangle, int index) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {
-        material* mat;
-        if (hTriangle.material_params.type == LAMBERTIAN) {
-            mat = new lambertian(hTriangle.material_params.color_ambient);
-        }
-        else if (hTriangle.material_params.type == METAL) {
-            mat = new metal(hTriangle.material_params.color_ambient, hTriangle.material_params.shininess);
-        }
-        else if (hTriangle.material_params.type == DIELECTRIC) {
-            mat = new dielectric(hTriangle.material_params.index_of_refraction);
-        }
-        else if (hTriangle.material_params.type == DIFFUSE_LIGHT) {
-            mat = new diffuse_light(hTriangle.material_params.color_diffuse);
-        } 
-        else {
-            // Use LAMBERTIAN by default
-            mat = new lambertian(hTriangle.material_params.color_ambient);
-        }
-        d_list[index] = new triangle(hTriangle.v0, hTriangle.v1, hTriangle.v2, mat);
     }
 }
 
@@ -172,13 +137,20 @@ public:
             unsigned int recursionDepth,
             dim3 threadBlockSize,
             HostScene& hostScene,
-            std::shared_ptr<Framebuffer> framebuffer) : 
+            std::shared_ptr<Framebuffer> framebuffer,
+            CameraConfig& cameraConfig) : 
             device_idx_{device_idx},
             samplesPerPixel_{samplesPerPixel},
             recursionDepth_{recursionDepth},
             hostScene_{hostScene},
             threadBlockSize_{threadBlockSize}, 
-            framebuffer_{framebuffer} {
+            framebuffer_{framebuffer}, 
+            cameraConfig_{cameraConfig} {
+        
+        cudaSetDevice(device_idx_);
+        checkCudaErrors(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 2000000000)); 
+        checkCudaErrors(cudaDeviceSetLimit(cudaLimitStackSize, 10000)); 
+
         reloadWorld();
         reloadCamera();
         setFramebuffer(framebuffer_);
@@ -195,7 +167,7 @@ public:
             samplesPerPixel_,
             scene_.d_camera,
             scene_.d_world,
-            hostScene_.cameraParams,
+            cameraConfig_,
             recursionDepth_,
             d_rand_state_
         );
@@ -221,41 +193,97 @@ public:
             checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
         } 
 
-        free_camera<<<1, 1>>>(scene_.d_camera);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
-
         create_camera<<<1,1>>>(scene_.d_camera);
     }
 
+    void loadTextures() {
+        scene_.textures = {};
+        for (const auto& texture : hostScene_.textures) {
+            float3* d_tex;
+            checkCudaErrors(cudaMalloc(
+                (void **)&d_tex, 
+                texture.width * texture.height * sizeof(float3)
+            ));
+
+            cudaMemcpy(
+                d_tex, 
+                texture.data.data(), 
+                texture.width * texture.height * sizeof(float3), 
+                cudaMemcpyHostToDevice
+            );
+
+            BaseColorTexture tex(
+                texture.width,
+                texture.height,
+                d_tex
+            );
+
+            scene_.textures.push_back(tex);
+        }
+    }
+
+    void loadMaterials() {
+        scene_.materials = {};
+        BaseColorTexture* baseColorTexture = nullptr;
+        BaseColorTexture* emissiveTexture = nullptr;
+        for (const auto& material : hostScene_.materials) {
+            // int textureIdx = material.baseColorTextureIdx;
+            if (material.baseColorTextureIdx.has_value()) {
+                baseColorTexture = thrust::raw_pointer_cast(&scene_.textures[material.baseColorTextureIdx.value()]);
+            }
+
+            if (material.emissiveTextureIdx.has_value()) {
+                emissiveTexture = thrust::raw_pointer_cast(&scene_.textures[material.emissiveTextureIdx.value()]);
+            }
+
+            UniversalMaterial mat(
+                material.baseColor,
+                // make_float3(0, 0, 0),
+                baseColorTexture,
+                material.emissiveFactor,
+                emissiveTexture
+
+            );
+            scene_.materials.push_back(mat);
+        }
+    }
+
+    void loadTrianglesWithTextures() {
+        scene_.faces = {};
+        for (const auto& hTriangle : hostScene_.triangles) {
+            triangle t(
+                hTriangle.v0,
+                hTriangle.v1,
+                hTriangle.v2,
+                thrust::raw_pointer_cast(&scene_.materials[hTriangle.materialIdx])
+            ); 
+            scene_.faces.push_back(t);
+        }
+    }
 
     // To be called when scene triangles change
     void reloadWorld() {
         cudaSetDevice(device_idx_);
 
-        if (scene_.d_list != nullptr && scene_.d_world != nullptr) {
+        if (scene_.d_world != nullptr) {
             // free previouse device pointer
-            free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, hostScene_.triangles.size());
+            free_world<<<1, 1>>>(scene_.d_world);
             checkCudaErrors(cudaGetLastError());
             checkCudaErrors(cudaDeviceSynchronize());
 
-            checkCudaErrors(cudaFree(scene_.d_list));
             checkCudaErrors(cudaFree(scene_.d_world));
             scene_.d_world = nullptr;
-            scene_.d_list = nullptr;
         }
 
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_list, hostScene_.triangles.size() * sizeof(hitable*)));
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh_node *)));
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh *)));
 
-        
-        for (int i = 0; i < hostScene_.triangles.size(); i++) {
-            deviceLoadTriangle<<<1, 1>>>(scene_.d_list, hostScene_.triangles[i], i);
-            checkCudaErrors(cudaGetLastError());
-            checkCudaErrors(cudaDeviceSynchronize());
-        }
+        loadTextures();
+        loadMaterials();
+        loadTrianglesWithTextures();
 
-        create_world<<<1,1>>>(scene_.d_world, scene_.d_list, hostScene_.triangles.size());
+        create_world<<<1,1>>>(scene_.d_world, thrust::raw_pointer_cast(&scene_.faces[0]), scene_.faces.size());
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
@@ -292,18 +320,13 @@ public:
 
     ~DevicePathTracer() {
         cudaSetDevice(device_idx_);
-        free_world<<<1, 1>>>(scene_.d_list, scene_.d_world, number_of_faces_);
-        checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());
-
-        free_camera<<<1, 1>>>(scene_.d_camera);
+        free_world<<<1, 1>>>(scene_.d_world);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
 
 private:
     int device_idx_;
-    // Resolution resolution_;
     dim3 blocks_;
     dim3 threads_;
     curandState *d_rand_state_ = nullptr;
@@ -313,8 +336,8 @@ private:
     HostScene& hostScene_;
     unsigned int samplesPerPixel_;
     unsigned int recursionDepth_;
-    // uint8_t *fb_;
     std::shared_ptr<Framebuffer> framebuffer_;
+    CameraConfig& cameraConfig_;
 };
 
 

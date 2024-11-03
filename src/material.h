@@ -2,6 +2,8 @@
 #include "hitable.h"
 #include "ray.h"
 #include "helper_math.h"
+#include "Texture.h"
+
 class hit_record;
 
 __device__ float schlick_approx(float cosine, float ref_idx) {
@@ -28,10 +30,67 @@ class material {
     __device__ virtual bool scatter(
         const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState  *local_rand_state) const{
         return false;
-        }
+    }
     __device__ virtual float3 emitted() const {
         return make_float3(0.0, 0.0, 0.0);
     }
+};
+
+class UniversalMaterial {
+public:
+    UniversalMaterial(
+        float3 baseColorFactor, 
+        BaseColorTexture* baseColorTexture, 
+        float3 emissiveFactor, 
+        BaseColorTexture* emissiveTexture) : 
+        baseColorFactor_{baseColorFactor},
+        baseColorTexture_{baseColorTexture}, 
+        emissiveFactor_{emissiveFactor},
+        emissiveTexture_{emissiveTexture} {}
+
+    __device__ bool scatter( 
+        const ray& r_in, 
+        const hit_record& rec, 
+        float3& attenuation, 
+        float3& emitted_color, 
+        ray& scattered, 
+        curandState *local_rand_state
+    ) const {
+        //check if light source
+        emitted_color = emitted(rec);
+        if (emitted_color.x > 0.0001 || emitted_color.y > 0.0001 || emitted_color.z > 0.0001) {
+            return false;
+        }
+
+
+        float3 scatter_direction = rec.normal + random_in_unit_sphere(local_rand_state);
+        // Catch degenerate scatter direction
+        if (near_zero(scatter_direction)) {
+            scatter_direction = rec.normal;
+        }
+        scattered = ray(rec.p, scatter_direction);
+
+        attenuation = baseColorFactor_;
+        if (baseColorTexture_) {
+            float3 texColor = baseColorTexture_->value(rec.texCoord, rec.p);
+            attenuation = make_float3(attenuation.x * texColor.x, attenuation.y * texColor.y, attenuation.z * texColor.z);
+        }
+        
+        return true;
+    }
+
+    __device__ float3 emitted(const hit_record& rec) const {
+        // return make_float3(0.0, 0.0, 0.0);
+        if (emissiveTexture_) {
+            return emissiveTexture_->value(rec.texCoord, rec.p) * emissiveFactor_;
+        }
+        return emissiveFactor_;
+    }
+
+    float3 baseColorFactor_;
+    BaseColorTexture* baseColorTexture_;
+    float3 emissiveFactor_;
+    BaseColorTexture* emissiveTexture_;
 };
 
 //matte material
@@ -109,7 +168,8 @@ class dielectric : public material {
             else
                 scattered = ray(rec.p, refracted);
             return true;
-        }       
+        }      
+         
         // __device__ virtual bool scatter(
         // const ray& r_in, const hit_record& rec, float3& attenuation, ray& scattered, curandState *local_rand_state) 
         // const override {

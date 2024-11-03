@@ -3,13 +3,14 @@
 #include "aabb.h"
 #include "interval.h"
 
-class material;
+class UniversalMaterial;
 
 struct hit_record{
     float t;
     float3 p;
     float3 normal;
-    material *mat_ptr;
+    UniversalMaterial *mat_ptr;
+    float2 texCoord;
 };
 
 

@@ -21,6 +21,7 @@
 #include "Framebuffer.h"
 #include "RenderManager.h"
 #include "Renderer/Renderer.h"
+#include "CameraConfig.h"
 #ifdef USE_LOCAL_RENDERER
 #include "Renderer/LocalRenderer/Window.h"
 #include "Renderer/LocalRenderer/LocalRenderer.h"
@@ -31,12 +32,14 @@
 
 int main(int argc, char** argv) {
     RendererConfig config; 
-
+    SceneLoader sceneLoader;
     ArgumentLoader argLoader(argc, argv);
     argLoader.loadArguments(config);
 
-    HostScene hScene(config, make_float3(0, 0, 0), make_float3(-0.26, 0.121, -0.9922));
-    RenderManager manager(config, hScene);
+
+    CameraConfig cameraConfig(make_float3(0, 0, 0.5), make_float3(0, 0, -0.5));
+    HostScene hScene = sceneLoader.load(config.modelPath);
+    
     /*
     changing parameters:
     manager.setSamplesPerPixel(30);
@@ -52,13 +55,21 @@ int main(int argc, char** argv) {
     hScene.setCameraFront(make_float3(1, 1, 1));
     */
 
+    auto start_init = std::chrono::high_resolution_clock::now();
+
+    RenderManager manager(config, hScene, cameraConfig);
+
+    auto stop_init = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop_init - start_init);
+    std::cout << "initializing in: " << duration.count() << "ms" << std::endl;
+
     #ifdef USE_LOCAL_RENDERER
-    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", hScene.cameraParams);
+    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", cameraConfig);
     LocalRenderer localRenderer(window);
     Renderer &renderer = localRenderer;
     #else
     RemoteRenderer remoteRenderer(config.jobId, config);
-    RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene);
+    RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene, cameraConfig);
     Renderer &renderer = remoteRenderer;
     #endif
 
