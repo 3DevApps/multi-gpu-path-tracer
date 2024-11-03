@@ -7,23 +7,30 @@
 #include "../third-party/stb_image.h"
 
 
-unsigned char floatToByte(float value) {
-    if (value <= 0.0)
-        return 0;
-    if (1.0 <= value)
-        return 255;
-    return static_cast<unsigned char>(256.0 * value);
-}
-
-HostTexture SceneLoader::loadTextureFromFile(const std::string& filename) {
+HostTexture SceneLoader::loadTextureFromFile(const aiScene *scene, const std::string& resDir, const std::string& filename) {
     float *fdata = nullptr; 
     int bytes_per_pixel = 3;
     auto n = bytes_per_pixel; 
     std::vector<float3> data;
-    int width, height;
+    int width, height, nrComponents;
+    unsigned char* raw_data;
 
-    fdata = stbi_loadf(filename.c_str(), &width, &height, &n, bytes_per_pixel);
-    if (fdata == nullptr) {
+    if (auto* embeddedTex = scene->GetEmbeddedTexture(filename.c_str())) {
+	    raw_data = stbi_load_from_memory(
+            reinterpret_cast<unsigned char*>(embeddedTex->pcData), 
+            embeddedTex->mWidth, 
+            &width, 
+            &height, 
+            &nrComponents, 
+            0
+        );
+    }
+    else {
+        std::string path = resDir + "/" + filename;
+        raw_data = stbi_load(path.c_str(), &width, &height, &n, bytes_per_pixel);
+    }
+
+    if (raw_data == nullptr) {
         throw std::runtime_error("Cannot load texture data, path: " + filename);
     }
 
@@ -32,13 +39,13 @@ HostTexture SceneLoader::loadTextureFromFile(const std::string& filename) {
 
     for(int i = 0, j = 0; i < total_bytes; i += 3, j++) {
         data[j] = make_float3(
-            floatToByte(fdata[i]),
-            floatToByte(fdata[i + 1]),
-            floatToByte(fdata[i + 2])
+            raw_data[i],
+            raw_data[i + 1],
+            raw_data[i + 2]
         );
     }
 
-    STBI_FREE(fdata);
+    STBI_FREE(raw_data);
     HostTexture tex{width, height, std::move(data)};
     return tex;
 }
@@ -57,10 +64,8 @@ std::vector<HostTexture> SceneLoader::loadTextures(const aiScene *scene, const s
                 if (retStatus != aiReturn_SUCCESS || textPath.length == 0) {
                     continue;
                 }
-
-                std::string path = resDir + "/" + textPath.C_Str();
-                textureDataCache_[path] = textures.size();
-                textures.push_back(loadTextureFromFile(path));
+                textureDataCache_[textPath.C_Str()] = textures.size();
+                textures.push_back(loadTextureFromFile(scene, resDir, textPath.C_Str()));
             }
         }
     }
@@ -91,7 +96,16 @@ std::vector<HostMaterial> SceneLoader::loadMaterials(const aiScene *scene) {
 }
 
 HostScene SceneLoader::load(std::string& path) {
-    const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FindDegenerates);
+    importer.SetPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_POINT | aiPrimitiveType_LINE);
+
+    const aiScene *scene = importer.ReadFile(
+        path, 
+        aiProcess_Triangulate | 
+        aiProcess_FindDegenerates | 
+        aiProcess_PreTransformVertices | 
+        aiProcess_FindDegenerates |
+        aiProcess_SortByPType
+    );
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         throw std::runtime_error(importer.GetErrorString());
     }
@@ -105,10 +119,10 @@ HostScene SceneLoader::load(std::string& path) {
 
     HostScene hostScene;
     auto type = path.substr(typePos + 1);
-    if (type == "gltf") {
+    if (type == "gltf" || type == "glb") {
         std::cout << "loading GLTF ..." << std::endl;
         resourcePath_ = path.substr(0, path.find_last_of('/'));
-        hostScene.textures = loadTextures(scene, resourcePath_);
+        hostScene.textures = loadTextures(scene, resourcePath_);    
 
         std::cout << "Loading materials" << std::endl; 
         hostScene.materials = loadMaterials(scene);
@@ -117,48 +131,65 @@ HostScene SceneLoader::load(std::string& path) {
         hostScene.triangles = loadTrianglesGLTF(scene);
     }
     else {
-        //TODO support for old objs
-        // throw std::runtime_error("Unsupported file type" + path); 
+        throw std::runtime_error("Unsupported file type" + path); 
     }
 
     std::cout << "Number of triangles: " << hostScene.triangles.size() << std::endl;
     return hostScene;
 }
 
+float3 convertColorToFloat3(aiColor3D color) {
+    return make_float3(color.r, color.g, color.b);
+}
+
 HostMaterial SceneLoader::processMaterial(const aiMaterial *ai_material) {
     HostMaterial material;
+
+    //base color
+    aiColor3D baseColor(1.f, 1.f, 1.f);
+    ai_material->Get(AI_MATKEY_BASE_COLOR, baseColor);
+    material.baseColor = convertColorToFloat3(baseColor);
+
+    //emissiveFactor
+    aiColor3D emissiveFactor(1.f, 1.f, 1.f);
+    ai_material->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveFactor);
+    material.emissiveFactor = convertColorToFloat3(emissiveFactor);
+
     for (int k = 0; k <= AI_TEXTURE_TYPE_MAX; k++) {
         auto textureType = static_cast<aiTextureType>(k);
-        for (size_t i = 0; i < ai_material->GetTextureCount(textureType); i++) {
-            aiTextureMapMode texMapMode[2];  // [u, v] //only clamp
+        if (ai_material->GetTextureCount(textureType) == 0) {
+            continue;
+        }
+            aiTextureMapMode texMapMode[2];  
             aiString texPath;
-            aiReturn retStatus = ai_material->GetTexture(textureType, i, &texPath, nullptr, nullptr, nullptr, nullptr, &texMapMode[0]);
+            aiReturn retStatus = ai_material->GetTexture(textureType, 0, &texPath, nullptr, nullptr, nullptr, nullptr, &texMapMode[0]);
 
             if (retStatus != aiReturn_SUCCESS || texPath.length == 0) {
                 std::cout << "load texture type=" << textureType << "failed with return value=" << retStatus  << "texPath: " << texPath.C_Str() << std::endl;
                 continue;
             }
 
-            std::string absolutePath = resourcePath_ + "/" + texPath.C_Str();
-            if (textureDataCache_.find(absolutePath) == textureDataCache_.end()) {
-                std::cout << "Texture not loaded, path: " << absolutePath;
+            if (textureDataCache_.find(texPath.C_Str()) == textureDataCache_.end()) {
+                std::cout << "Texture not loaded, path: " << texPath.C_Str();
                 continue;
             }
 
-            auto tex = textureDataCache_[absolutePath];
+            auto tex = textureDataCache_[texPath.C_Str()];
             switch (textureType) {
                 case aiTextureType_BASE_COLOR:
                     material.baseColorTextureIdx = tex;
                     break;
+                case aiTextureType_EMISSIVE:
+                    std::cout << "Loading emissive" << std::endl;
+                    material.emissiveTextureIdx = tex;
                 default:
                     continue;  
             }
-        }
     }
     return material;
 }
 
-bool SceneLoader::processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, std::vector<Triangle> &triangles, glm::mat4 &transform) {
+bool SceneLoader::processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, std::vector<Triangle> &triangles) {
     std::vector<Vertex> vertices;
     Triangle triangle;
 
@@ -174,7 +205,6 @@ bool SceneLoader::processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, st
                 1.0f
             );
 
-            vec = vec * transform;
             vertices[i].position.x = vec.x;
             vertices[i].position.y = vec.y;
             vertices[i].position.z = vec.z;
@@ -195,6 +225,11 @@ bool SceneLoader::processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, st
 
     for (size_t i = 0; i < ai_mesh->mNumFaces; i++) {
         aiFace face = ai_mesh->mFaces[i];
+        if (face.mNumIndices < 3) {
+            std::cout << "Igoring line" << std::endl;
+            return false;
+        }
+
         if (face.mNumIndices != 3) {
             std::cout << "ModelLoader::processMesh, mesh not transformed to triangle mesh." << std::endl;
             return false;
@@ -208,18 +243,18 @@ bool SceneLoader::processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, st
     return true;
 }
 
-bool SceneLoader::processNode(const aiNode *ai_node, const aiScene *ai_scene, std::vector<Triangle> &triangles, glm::mat4 &transform) {
+bool SceneLoader::processNode(const aiNode *ai_node, const aiScene *ai_scene, std::vector<Triangle> &triangles) {
     if (!ai_node) {
         std::cout << "node empty" << std::endl;
         return false;
     }
 
-    glm::mat4 t = convertMatrix(ai_node->mTransformation);
-    auto currTransform = transform * t;
+    std::cout << "Processing node" << std::endl;
+
     for (size_t i = 0; i < ai_node->mNumMeshes; i++) {
         const aiMesh *meshPtr = ai_scene->mMeshes[ai_node->mMeshes[i]];
         if (meshPtr) {
-            if (!processMesh(meshPtr, ai_scene, triangles, currTransform)) {
+            if (!processMesh(meshPtr, ai_scene, triangles)) {
                 std::cout << "mesh processing failed" << std::endl;
             }
         }
@@ -229,7 +264,7 @@ bool SceneLoader::processNode(const aiNode *ai_node, const aiScene *ai_scene, st
     }
 
     for (size_t i = 0; i < ai_node->mNumChildren; i++) {
-        if (processNode(ai_node->mChildren[i], ai_scene, triangles, currTransform)) {}
+        if (processNode(ai_node->mChildren[i], ai_scene, triangles)) {}
     }
     return true;
 }
@@ -238,9 +273,7 @@ std::vector<Triangle> SceneLoader::loadTrianglesGLTF(const aiScene *scene) {
     int num_materials = scene->mNumMaterials;
     std::vector<Triangle> triangles; 
 
-    auto currTransform = glm::mat4(1.f);
-
     std::cout << "preocess node here" << std::endl;
-    processNode(scene->mRootNode, scene, triangles, currTransform);
+    processNode(scene->mRootNode, scene, triangles);
     return triangles;
 }

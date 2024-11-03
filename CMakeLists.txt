@@ -26,7 +26,7 @@ set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 set(
         CUDA_NVCC_FLAGS 
         ${CUDA_NVCC_FLAGS}; 
-                -gencode arch=compute_70,code=sm_70 
+                -gencode arch=compute_70,code=sm_70
                 -rdc=true
                 -lineinfo
 )

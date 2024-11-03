@@ -38,17 +38,31 @@ class material {
 
 class UniversalMaterial {
 public:
-    UniversalMaterial(float3 baseColorFactor, BaseColorTexture* baseColorTexture) : 
+    UniversalMaterial(
+        float3 baseColorFactor, 
+        BaseColorTexture* baseColorTexture, 
+        float3 emissiveFactor, 
+        BaseColorTexture* emissiveTexture) : 
         baseColorFactor_{baseColorFactor},
-        baseColorTexture_{baseColorTexture} {}
+        baseColorTexture_{baseColorTexture}, 
+        emissiveFactor_{emissiveFactor},
+        emissiveTexture_{emissiveTexture} {}
 
     __device__ bool scatter( 
         const ray& r_in, 
         const hit_record& rec, 
         float3& attenuation, 
+        float3& emitted_color, 
         ray& scattered, 
         curandState *local_rand_state
     ) const {
+        //check if light source
+        emitted_color = emitted(rec);
+        if (emitted_color.x > 0.0001 || emitted_color.y > 0.0001 || emitted_color.z > 0.0001) {
+            return false;
+        }
+
+
         float3 scatter_direction = rec.normal + random_in_unit_sphere(local_rand_state);
         // Catch degenerate scatter direction
         if (near_zero(scatter_direction)) {
@@ -56,16 +70,27 @@ public:
         }
         scattered = ray(rec.p, scatter_direction);
 
-        attenuation = baseColorTexture_->value(rec.texCoord, rec.p);
+        attenuation = baseColorFactor_;
+        if (baseColorTexture_) {
+            float3 texColor = baseColorTexture_->value(rec.texCoord, rec.p);
+            attenuation = make_float3(attenuation.x * texColor.x, attenuation.y * texColor.y, attenuation.z * texColor.z);
+        }
+        
         return true;
     }
 
-    __device__ float3 emitted() const {
-        return make_float3(0.0, 0.0, 0.0);
+    __device__ float3 emitted(const hit_record& rec) const {
+        // return make_float3(0.0, 0.0, 0.0);
+        if (emissiveTexture_) {
+            return emissiveTexture_->value(rec.texCoord, rec.p) * emissiveFactor_;
+        }
+        return emissiveFactor_;
     }
 
     float3 baseColorFactor_;
     BaseColorTexture* baseColorTexture_;
+    float3 emissiveFactor_;
+    BaseColorTexture* emissiveTexture_;
 };
 
 //matte material

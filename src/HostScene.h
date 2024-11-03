@@ -32,8 +32,10 @@ struct Vertex {
 
 struct HostMaterial {
     //TODO Other material params
-    float3 baseColorFactor;
-    int baseColorTextureIdx;
+    float3 baseColor;
+    std::optional<int> baseColorTextureIdx{};
+    float3 emissiveFactor;
+    std::optional<int> emissiveTextureIdx{};
 };
 
 struct Triangle {
@@ -67,9 +69,9 @@ private:
     std::vector<Triangle> loadTrianglesGLTF(const aiScene *scene);
 
     HostMaterial processMaterial(const aiMaterial *ai_material);
-    bool processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, std::vector<Triangle> &triangles, glm::mat4 &transform);
-    bool processNode(const aiNode *ai_node, const aiScene *ai_scene, std::vector<Triangle> &triangles, glm::mat4 &transform);
-    HostTexture loadTextureFromFile(const std::string& filename);
+    bool processMesh(const aiMesh *ai_mesh, const aiScene *ai_scene, std::vector<Triangle> &triangles);
+    bool processNode(const aiNode *ai_node, const aiScene *ai_scene, std::vector<Triangle> &triangles);
+    HostTexture loadTextureFromFile(const aiScene *scene, const std::string& resDir, const std::string& filename);
     std::vector<HostTexture> loadTextures(const aiScene *scene, const std::string &resDir);
     std::vector<HostMaterial> loadMaterials(const aiScene *ai_scene);
 

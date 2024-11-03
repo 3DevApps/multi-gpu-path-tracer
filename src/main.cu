@@ -21,7 +21,7 @@
 #include "Framebuffer.h"
 #include "RenderManager.h"
 #include "Renderer/Renderer.h"
-#include "CameraParams.h"
+#include "CameraConfig.h"
 #ifdef USE_LOCAL_RENDERER
 #include "Renderer/LocalRenderer/Window.h"
 #include "Renderer/LocalRenderer/LocalRenderer.h"
@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
     argLoader.loadArguments(config);
 
 
-    CameraParams cameraParams(make_float3(6, 6, 6), make_float3(-6, -6, -6));
-    HostScene hScene = sceneLoader.load(config.path);
+    CameraConfig cameraConfig(make_float3(0, 0, 0.5), make_float3(0, 0, -0.5));
+    HostScene hScene = sceneLoader.load(config.modelPath);
     
     /*
     changing parameters:
@@ -57,19 +57,19 @@ int main(int argc, char** argv) {
 
     auto start_init = std::chrono::high_resolution_clock::now();
 
-    RenderManager manager(config, hScene, cameraParams);
+    RenderManager manager(config, hScene, cameraConfig);
 
     auto stop_init = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop_init - start_init);
     std::cout << "initializing in: " << duration.count() << "ms" << std::endl;
 
     #ifdef USE_LOCAL_RENDERER
-    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", cameraParams);
+    Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", cameraConfig);
     LocalRenderer localRenderer(window);
     Renderer &renderer = localRenderer;
     #else
     RemoteRenderer remoteRenderer(config.jobId, config);
-    RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene, cameraParams);
+    RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene, cameraConfig);
     Renderer &renderer = remoteRenderer;
     #endif
 
@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
     while (!renderer.shouldStopRendering()) {
+
         auto start = std::chrono::high_resolution_clock::now();
         manager.renderFrame();
         auto stop = std::chrono::high_resolution_clock::now();

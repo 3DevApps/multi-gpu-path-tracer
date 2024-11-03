@@ -12,27 +12,56 @@
 
 class triangle {
 public:
+    __device__ triangle() {}
     triangle(Vertex v0, Vertex v1, Vertex v2, UniversalMaterial *mat_ptr) : 
         v0_{v0}, 
         v1_{v1}, 
         v2_{v2}, 
-        mat_ptr_{mat_ptr} {}
+        mat_ptr_{mat_ptr} {
+    
+        interval x_interval = interval(min(v0.position.x,min(v1.position.x, v2.position.x)), max(v0.position.x,max(v1.position.x,v2.position.x)));
+        interval y_interval = interval(min(v0.position.y,min(v1.position.y,v2.position.y)),max(v0.position.y,max(v1.position.y,v2.position.y)));
+        interval z_interval = interval(min(v0.position.z,min(v1.position.z,v2.position.z)),max(v0.position.x,max(v1.position.z,v2.position.z)));
+        bbox = aabb(x_interval, y_interval, z_interval);
+        // printf("triangle---------------------- \n");
+        // printf("v0: %f %f %f \n", v0.position.x, v0.position.y, v0.position.z);
+        // printf("v1: %f %f %f \n", v1.position.x, v1.position.y, v1.position.z);
+        // printf("v2: %f %f %f \n", v2.position.x, v2.position.y, v2.position.z);
+
+        // printf("bounding box: \n");
+        // printf("min: %f %f %f\n", bbox.x.min, bbox.y.min, bbox.z.min);
+        // printf("max: %f %f %f\n", bbox.x.max, bbox.y.max, bbox.z.max);
+        // printf("----------------------------\n");
+    }
+
     __device__ bool hit(const ray& r, interval ray_t, hit_record& rec) const;
 
     Vertex v0_, v1_, v2_;
     UniversalMaterial *mat_ptr_;
+    aabb bbox;
 };
 
 __device__ bool triangle::hit(const ray& r, interval ray_t, hit_record& rec) const {
+    // return true;
     // Moller-Trumbore intersection algorithm
+
     float3 e1 = v1_.position - v0_.position;
     float3 e2 = v2_.position - v0_.position;
+    // float3 e1 = v1_.position;
+    // float3 e2 = v2_.position;
     float3 pvec = cross(r.direction(), e2);
     float det = dot(e1, pvec);
 
+    // rec.mat_ptr = mat_ptr_;
+    
+
+    // return true; 
     if (det < 1e-8 && det > -1e-8)
         return false;
 
+    // return true;
+    
+    // return true;
     float inv_det = 1.0 / det;
     float3 tvec = r.origin() - v0_.position;
     float u = dot(tvec, pvec) * inv_det;
@@ -47,6 +76,7 @@ __device__ bool triangle::hit(const ray& r, interval ray_t, hit_record& rec) con
         return false;
 
     float t = dot(e2, qvec) * inv_det;
+
 
     if (t < ray_t.max && t > ray_t.min) {
         rec.t = t;

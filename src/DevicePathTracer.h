@@ -24,7 +24,7 @@ struct RenderTask {
 };
 
 struct Scene {
-    hitable_list **d_world = nullptr;
+    bvh **d_world = nullptr;
     camera **d_camera = nullptr;
     thrust::device_vector<BaseColorTexture> textures{}; 
     thrust::device_vector<UniversalMaterial> materials{};
@@ -58,7 +58,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * It takes in the framebuffer `fb`, the maximum width and height of the image `max_x` and `max_y`,
  * the number of samples per pixel `sample_per_pixel`, an array of camera pointers `cam`, an array of
  * hitable pointers `world`, and the random state for each thread `rand_state`.
- *./
+ *
  * @param fb The framebuffer to store the rendered image.
  * @param max_x The maximum width of the image.
  * @param max_y The maximum height of the image.
@@ -67,7 +67,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, hitable_list **world, CameraParams camParams, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, bvh **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -79,17 +79,17 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
         float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(res.width);
         float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(res.height);
         ray r = (*cam)->get_ray(u, v);
-        col += (*cam)->ray_color(r, world, camParams, recursionDepth, &local_rand_state);
+        col += (*cam)->ray_color(r, world, cameraConfig, recursionDepth, &local_rand_state);
     }
 
-    float3 color_modifier;
+    float3 color_modifier = make_float3(1, 1, 1);
     int device_idx;
     cudaGetDevice(&device_idx);
-    if(device_idx == 0){
-        color_modifier = make_float3(1, 1, 1);
-    }else if(device_idx == 1){
-        color_modifier = make_float3(0.8, 0.4, 1);
-    }
+    // if(device_idx == 0){
+    //     color_modifier = make_float3(1, 1, 1);
+    // }else if(device_idx == 1){
+    //     color_modifier = make_float3(0.8, 0.4, 1);
+    // }
     int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
     fb[3 * pixel_index] = color.x;
     fb[3 * pixel_index + 1] = color.y;
@@ -108,11 +108,11 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(hitable_list **d_world, triangle *d_list, int d_list_size) {
+__global__ void create_world(bvh **d_world, triangle*d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {                 
         curandState local_rand_state;
         curand_init(1984, 0, 0, &local_rand_state);                     
-        *d_world  = new hitable_list(d_list, d_list_size);      
+        *d_world  = new bvh(d_list, 0, d_list_size, &local_rand_state);      
     }
 }
 
@@ -122,18 +122,11 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(hitable_list **d_world) {
+__global__ void free_world(bvh **d_world) {
     if (*d_world) {
         delete *d_world; 
         *d_world = nullptr;
     }
-}
-
-__global__ void free_camera(camera **d_camera) {
-    // if (*d_camera) {
-    //     delete *d_camera;
-    //     *d_camera = nullptr;
-    // }  
 }
 
 class DevicePathTracer {
@@ -145,17 +138,18 @@ public:
             dim3 threadBlockSize,
             HostScene& hostScene,
             std::shared_ptr<Framebuffer> framebuffer,
-            CameraParams& cameraParams) : 
+            CameraConfig& cameraConfig) : 
             device_idx_{device_idx},
             samplesPerPixel_{samplesPerPixel},
             recursionDepth_{recursionDepth},
             hostScene_{hostScene},
             threadBlockSize_{threadBlockSize}, 
             framebuffer_{framebuffer}, 
-            cameraParams_{cameraParams} {
+            cameraConfig_{cameraConfig} {
         
         cudaSetDevice(device_idx_);
         checkCudaErrors(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 2000000000)); 
+        checkCudaErrors(cudaDeviceSetLimit(cudaLimitStackSize, 10000)); 
 
         reloadWorld();
         reloadCamera();
@@ -173,7 +167,7 @@ public:
             samplesPerPixel_,
             scene_.d_camera,
             scene_.d_world,
-            cameraParams_,
+            cameraConfig_,
             recursionDepth_,
             d_rand_state_
         );
@@ -199,10 +193,8 @@ public:
             checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
         } 
 
-        free_camera<<<1, 1>>>(scene_.d_camera);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
-
         create_camera<<<1,1>>>(scene_.d_camera);
     }
 
@@ -234,11 +226,25 @@ public:
 
     void loadMaterials() {
         scene_.materials = {};
+        BaseColorTexture* baseColorTexture = nullptr;
+        BaseColorTexture* emissiveTexture = nullptr;
         for (const auto& material : hostScene_.materials) {
-            int textureIdx = material.baseColorTextureIdx;
+            // int textureIdx = material.baseColorTextureIdx;
+            if (material.baseColorTextureIdx.has_value()) {
+                baseColorTexture = thrust::raw_pointer_cast(&scene_.textures[material.baseColorTextureIdx.value()]);
+            }
+
+            if (material.emissiveTextureIdx.has_value()) {
+                emissiveTexture = thrust::raw_pointer_cast(&scene_.textures[material.emissiveTextureIdx.value()]);
+            }
+
             UniversalMaterial mat(
-                material.baseColorFactor,
-                thrust::raw_pointer_cast(&scene_.textures[textureIdx])
+                material.baseColor,
+                // make_float3(0, 0, 0),
+                baseColorTexture,
+                material.emissiveFactor,
+                emissiveTexture
+
             );
             scene_.materials.push_back(mat);
         }
@@ -270,8 +276,8 @@ public:
             checkCudaErrors(cudaFree(scene_.d_world));
             scene_.d_world = nullptr;
         }
-        
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(hitable_list *)));
+
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh *)));
 
         loadTextures();
         loadMaterials();
@@ -317,10 +323,6 @@ public:
         free_world<<<1, 1>>>(scene_.d_world);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
-
-        free_camera<<<1, 1>>>(scene_.d_camera);
-        checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());
     }
 
 private:
@@ -335,7 +337,7 @@ private:
     unsigned int samplesPerPixel_;
     unsigned int recursionDepth_;
     std::shared_ptr<Framebuffer> framebuffer_;
-    CameraParams& cameraParams_;
+    CameraConfig& cameraConfig_;
 };
 
 

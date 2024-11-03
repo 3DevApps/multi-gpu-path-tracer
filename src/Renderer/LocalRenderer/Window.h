@@ -14,7 +14,7 @@
 #include <string>
 #include <iostream>
 #include "../../HostScene.h"
-#include "../../CameraParams.h"
+#include "../../CameraConfig.h"
 
 enum class MouseButton {
     Left,
@@ -27,7 +27,7 @@ public:
     Window(Window const&) = delete;
     Window& operator=(Window const&) = delete;
 
-    Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraParams& camParams);
+    Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraConfig& cameraConfig);
     ~Window();
 
     void getMousePos(int& x, int& y) const;
@@ -42,7 +42,7 @@ public:
     bool newEvent();
 
     //public for static callbacks
-    CameraParams& camParams;
+    CameraConfig& cameraConfig;
     bool firstMouse = 0;
     float lastX = 0;
     float lastY = 0;

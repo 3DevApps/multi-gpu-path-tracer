@@ -23,7 +23,7 @@
 
 class RenderManager { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene, CameraParams& cameraParams) : config_{config}, hScene_{hScene}, lk_{m_}, cameraParams{cameraParams} {
+        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig) : config_{config}, hScene_{hScene}, lk_{m_}, cameraConfig_{cameraConfig} {
         newConfig_ = config_;
         renderTasks_ = taskGen_.generateEqualTasks(config.gpuNumber * config.streamsPerGpu, config.resolution.width, config.resolution.height);
         framebuffer_ = std::make_shared<Framebuffer>(config.resolution);
@@ -56,7 +56,7 @@ public:
                 config_.threadBlockSize, 
                 hScene_, 
                 framebuffer_,
-                cameraParams
+                cameraConfig_
             ));
 
             streamThreads_.push_back({}); 
@@ -218,5 +218,5 @@ private:
     RendererConfig newConfig_{};
     bool shouldUpdatePathTracerParams = false;
     bool shouldReloadWorld = false;
-    CameraParams& cameraParams;
+    CameraConfig& cameraConfig_;
 };
