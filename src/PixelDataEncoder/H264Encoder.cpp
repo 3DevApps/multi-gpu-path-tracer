@@ -14,6 +14,7 @@ void H264Encoder::initEncoder(const int width, const int height)
 
     param.i_width = width;
     param.i_height = height;
+    param.i_level_idc = 52;
     param.i_fps_num = fps;
     param.i_fps_den = 1;
     param.i_csp = X264_CSP_I420;
@@ -22,7 +23,6 @@ void H264Encoder::initEncoder(const int width, const int height)
     param.b_annexb = 1;         // Use Annex B format with start codes
 
     x264_param_apply_profile(&param, "high");
-    param.i_level_idc = 52;
 
     encoder = x264_encoder_open(&param);
     if (!encoder)
