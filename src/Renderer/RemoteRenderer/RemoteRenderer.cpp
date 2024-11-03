@@ -1,10 +1,8 @@
 #include "RemoteRenderer.h"
 
-RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config)
-    : jobId(jobId), config(config)
+RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> framebuffer)
+    : jobId(jobId), config(config), framebuffer(framebuffer)
 {
-    pixelData.resize(config.resolution.width * config.resolution.height * 3);
-
     snapshotDataEncoder = std::make_shared<PNGEncoder>();
     frameDataEncoder = std::make_shared<H264Encoder>();
 
@@ -57,27 +55,9 @@ std::vector<uint8_t> RemoteRenderer::prepareFrame(const uint8_t *frame, const st
 {
     int view_width = config.resolution.width;
     int view_height = config.resolution.height;
-
-    if (pixelData.size() != view_width * view_height * 3)
-    {
-        pixelData.resize(view_width * view_height * 3);
-    }
-
-    for (int y = view_height - 1; y >= 0; --y)
-    {
-        for (int x = 0; x < view_width; ++x)
-        {
-            int fbi = (y * view_width + x) * 3;
-            int pdi = ((view_height - y - 1) * view_width + x) * 3;
-            pixelData[pdi] = frame[fbi];
-            pixelData[pdi + 1] = frame[fbi + 1];
-            pixelData[pdi + 2] = frame[fbi + 2];
-        }
-    }
-
     std::vector<uint8_t> outputData;
     auto start = std::chrono::high_resolution_clock::now();
-    if (!pixelDataEncoder->encodePixelData(pixelData, view_width, view_height, outputData))
+    if (!pixelDataEncoder->encodePixelData(frame, view_width, view_height, outputData))
     {
         outputData.clear();
     }
@@ -96,8 +76,9 @@ std::vector<uint8_t> RemoteRenderer::processFrameForSnapshot(const uint8_t *fram
     return prepareFrame(frame, snapshotDataEncoder);
 }
 
-void RemoteRenderer::renderFrame(const uint8_t *frame)
+void RemoteRenderer::renderFrame()
 {
+    uint8_t *frame = framebuffer->getYUVPtr();
     std::vector<uint8_t> outputData = processFrameForStreaming(frame);
     if (!outputData.empty())
     {
@@ -107,15 +88,16 @@ void RemoteRenderer::renderFrame(const uint8_t *frame)
         ix::IXWebSocketSendData IXPixelData(outputData);
         webSocket.sendBinary(IXPixelData);
     }
-    generateAndSendSnapshotIfNeeded(frame);
+    generateAndSendSnapshotIfNeeded();
 }
 
-void RemoteRenderer::generateAndSendSnapshotIfNeeded(const uint8_t *frame)
+void RemoteRenderer::generateAndSendSnapshotIfNeeded()
 {
     if (!generateAndSendSnapshotFlag)
     {
         return;
     }
+    uint8_t *frame = framebuffer->getRGBPtr();
     std::vector<uint8_t> outputData = processFrameForSnapshot(frame);
     if (!outputData.empty())
     {
