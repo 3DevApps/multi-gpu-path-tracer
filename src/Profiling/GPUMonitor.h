@@ -43,6 +43,8 @@ public:
 private:
     unsigned int device_count_;
     std::vector<DeviceInfo> device_infos_;
+    size_t free_byte;
+    size_t total_byte;
 };
 
 class MonitorThread {

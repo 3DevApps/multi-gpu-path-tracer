@@ -6,6 +6,7 @@
 #include "interval.h"
 #include "bvh.h"
 #include "HostScene.h"
+#include "CameraConfig.h"
 
 /**
 * @brief Represents a camera in a 3D scene.
@@ -16,15 +17,15 @@
 class camera
 {
 public:
-    __device__ void recalculate_camera_params(CameraParams& camParams) {
-        lookAt = camParams.lookFrom + camParams.front;
-        focal_length = length(camParams.lookFrom - lookAt);
-        float theta_v = camParams.vfov * M_PI / 180; 
+    __device__ void recalculate_camera_params(CameraConfig& cameraConfig) {
+        lookAt = cameraConfig.lookFrom + cameraConfig.front;
+        focal_length = length(cameraConfig.lookFrom - lookAt);
+        float theta_v = cameraConfig.vfov * M_PI / 180; 
         float half_height = tan(theta_v / 2);
-        float theta_h = camParams.hfov * M_PI / 180;
+        float theta_h = cameraConfig.hfov * M_PI / 180;
         float half_width = tan(theta_h / 2); 
-        origin = camParams.lookFrom; 
-        w = normalize(camParams.lookFrom - lookAt);
+        origin = cameraConfig.lookFrom; 
+        w = normalize(cameraConfig.lookFrom - lookAt);
         u = normalize(cross(vup, w));
         v = cross(w, u);
 
@@ -44,8 +45,8 @@ public:
      * @param local_rand_state The pointer to the random number generator state for the current thread.
      * @return The color of the ray.
      */
-    __device__ float3 ray_color(const ray& r, bvh_node **world, CameraParams& camParams, unsigned int recursionDepth, curandState* local_rand_state) {
-        recalculate_camera_params(camParams);
+    __device__ float3 ray_color(const ray& r, bvh **world, CameraConfig& cameraConfig, unsigned int recursionDepth, curandState* local_rand_state) {
+        recalculate_camera_params(cameraConfig);
         ray cur_ray = r;
         float3 cur_attenuation = make_float3(1.0, 1.0, 1.0);
         for(int i = 0; i < recursionDepth; i++) {
@@ -53,9 +54,9 @@ public:
             if ((*world)->hit(cur_ray, hit_interval, rec)) {
                 ray scattered;
                 float3 attenuation; //means color
-                float3 color_from_emission = rec.mat_ptr->emitted();
-                if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, scattered, local_rand_state)) {
-                    cur_attenuation *= attenuation + color_from_emission;
+                float3 color_from_emission;
+                if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, color_from_emission, scattered, local_rand_state)) {
+                    cur_attenuation *= attenuation;
                     cur_ray = scattered;
                 }
                 else {
@@ -66,8 +67,8 @@ public:
             else {
                 //background
                 return make_float3(1, 1, 1) * cur_attenuation; 
-                }
             }
+        }
         return make_float3(0.0,0.0,0.0); // exceeded recursion
     }   
 

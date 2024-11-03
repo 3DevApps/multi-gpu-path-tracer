@@ -8,11 +8,11 @@ const std::unordered_map<MouseButton, int> mouseButtonToGlfwButton = {
     { MouseButton::Middle, GLFW_MOUSE_BUTTON_MIDDLE },
 };
 
-Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraParams& camParams)
+Window::Window(std::uint32_t width, std::uint32_t height, const std::string& title, CameraConfig& cameraConfig)
     : window_(nullptr, glfwDestroyWindow)
     , width_(width)
     , height_(height)
-    , camParams(camParams) {
+    , cameraConfig(cameraConfig) {
 
     if (!glfwInit()) {
         throw std::runtime_error("glfwInit() failed");
@@ -95,13 +95,13 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
     const float cameraSpeed = 0.5f;
     
     if (key == GLFW_KEY_W && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        self->camParams.lookFrom += cameraSpeed * self->camParams.front;
+        self->cameraConfig.lookFrom += cameraSpeed * self->cameraConfig.front;
     if (key == GLFW_KEY_S && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        self->camParams.lookFrom -= cameraSpeed * self->camParams.front;
+        self->cameraConfig.lookFrom -= cameraSpeed * self->cameraConfig.front;
     if (key == GLFW_KEY_A && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        self->camParams.lookFrom -= normalize(cross(self->camParams.front, make_float3(0, 1, 0))) * cameraSpeed;
+        self->cameraConfig.lookFrom -= normalize(cross(self->cameraConfig.front, make_float3(0, 1, 0))) * cameraSpeed;
     if (key == GLFW_KEY_D && (action == GLFW_PRESS || action == GLFW_REPEAT))
-        self->camParams.lookFrom += normalize(cross(self->camParams.front, make_float3(0, 1, 0))) * cameraSpeed;
+        self->cameraConfig.lookFrom += normalize(cross(self->cameraConfig.front, make_float3(0, 1, 0))) * cameraSpeed;
     if (key == GLFW_KEY_X && (action == GLFW_PRESS || action == GLFW_REPEAT))
         self->newEvent_ = 1;
     if (key == GLFW_KEY_C && (action == GLFW_PRESS || action == GLFW_REPEAT))
@@ -148,7 +148,7 @@ void Window::cursorPositionCallback(GLFWwindow* window, double xpos, double ypos
     if (self->pitch < -89.0f)
         self->pitch = -89.0f;
 
-    self->camParams.front = normalize(make_float3(
+    self->cameraConfig.front = normalize(make_float3(
         cos(getRadians(self->yaw)) * cos(getRadians(self->pitch)),
         sin(getRadians(self->pitch)), 
         sin(getRadians(self->yaw)) * cos(getRadians(self->pitch))));

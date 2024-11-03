@@ -4,6 +4,7 @@ GLFW_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
 GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz"
 ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
 IXWEBSOCKET_URL="https://github.com/machinezone/IXWebSocket.git"
+GLM_URL=https://github.com/g-truc/glm/archive/refs/tags/1.0.1.tar.gz
 
 
 LIB_PREFIX=~/libs
@@ -58,3 +59,5 @@ done
 cmake_install_ixwebsocket
 
 clear
+
+

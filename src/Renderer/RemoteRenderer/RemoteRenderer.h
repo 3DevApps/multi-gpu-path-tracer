@@ -11,6 +11,7 @@
 #include "../../PixelDataEncoder/PNGEncoder.h"
 #include "../../PixelDataEncoder/H264Encoder.h"
 #include "../../RendererConfig.h"
+#include "../../CameraConfig.h"
 
 class RemoteRenderer : public Renderer
 {
