@@ -9,7 +9,9 @@ class aabb{
 public:
     interval x, y, z;
 
-    __device__ __host__ aabb() {} // The default AABB is empty, since intervals are empty by default.
+    __device__ __host__ aabb() {
+        pad_to_minimums();
+    }
 
     __device__ __host__ aabb(const interval& ix, const interval& iy, const interval& iz)
       : x(ix), y(iy), z(iz) {
@@ -70,6 +72,21 @@ public:
         return make_float3(x.max - x.min, y.max - y.min, z.max - z.min);
     }
 
+    __device__ float area() const {
+        float3 e = make_float3(x.max - x.min, y.max - y.min, z.max - z.min); // box extent
+        return e.x * e.y + e.y * e.z + e.z * e.x; 
+    }
+
+    __device__ __host__ void extend(float3 v) {
+        x.min = fmin(v.x, x.min);
+        y.min = fmin(v.y, y.min);
+        z.min = fmin(v.z, z.min);
+
+        x.max = fmax(v.x, x.max);
+        y.max = fmax(v.y, y.max);
+        z.max = fmax(v.z, z.max);
+    }
+ 
     __device__ __host__ void pad_to_minimums() {
         // Adjust the AABB so that no side is narrower than some delta, padding if necessary.
         double delta = 0.00001;

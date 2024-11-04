@@ -24,7 +24,7 @@ struct RenderTask {
 };
 
 struct Scene {
-    bvh **d_world = nullptr;
+    BVH **d_world = nullptr;
     camera **d_camera = nullptr;
     thrust::device_vector<BaseColorTexture> textures{}; 
     thrust::device_vector<UniversalMaterial> materials{};
@@ -67,7 +67,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, bvh **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, BVH **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -108,11 +108,9 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
  * @param d_list Pointer to the device memory where the list of objects will be stored.
  * @param d_list_size Number of objects in objects array 
  */
-__global__ void create_world(bvh **d_world, triangle*d_list, int d_list_size) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {                 
-        curandState local_rand_state;
-        curand_init(1984, 0, 0, &local_rand_state);                     
-        *d_world  = new bvh(d_list, 0, d_list_size, &local_rand_state);      
+__global__ void create_world(BVH **d_world, triangle*d_list, int d_list_size) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                                  
+        *d_world  = new BVH(d_list, d_list_size);      
     }
 }
 
@@ -122,7 +120,7 @@ __global__ void create_camera(camera **d_camera) {
     }
 }
 
-__global__ void free_world(bvh **d_world) {
+__global__ void free_world(BVH **d_world) {
     if (*d_world) {
         delete *d_world; 
         *d_world = nullptr;
@@ -277,7 +275,7 @@ public:
             scene_.d_world = nullptr;
         }
 
-        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(bvh *)));
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(BVH *)));
 
         loadTextures();
         loadMaterials();
