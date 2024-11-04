@@ -58,13 +58,11 @@ void GPUMonitor::logLatestStats() {
 
 std::string GPUMonitor::getLatestStats() {
     std::ostringstream stats;
-    stats << "ID|Name|Mem Total (MB)|Mem Free (MB)|GPU Util (%)|Mem Util (%)";
     for (int i = 0; i < device_count_; i++) {
-        stats << "#" << i << "|" << device_infos_[i].name << "|" <<
-            device_infos_[i].memory_info.total / 1000000 << "|" << 
-            device_infos_[i].memory_info.free / 1000000 << "|" << 
-            device_infos_[i].utilization.gpu << "|" <<
-            device_infos_[i].utilization.memory;
+        stats << "MB|Mem Total GPU " << i << "|" << device_infos_[i].memory_info.total / 1000000 << "|";
+        stats << "MB|Mem Free GPU " << i << "|" << device_infos_[i].memory_info.free / 1000000 << "|";
+        stats << "%|GPU Util GPU " << i << "|" << device_infos_[i].utilization.gpu << "|";
+        stats << "%|Mem Util GPU " << i << "|" << device_infos_[i].utilization.memory << "|";
     }
     return stats.str();
 }
