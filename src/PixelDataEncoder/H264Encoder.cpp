@@ -45,6 +45,7 @@ void H264Encoder::updateEncoderIfNeeded(const int width, const int height)
     {
         destroyEncoder();
         initEncoder(width, height);
+        first_frame = true;
     }
 }
 
