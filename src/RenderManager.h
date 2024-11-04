@@ -23,7 +23,7 @@
 
 class RenderManager { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig) : config_{config}, hScene_{hScene}, lk_{m_}, cameraConfig_{cameraConfig} {
+        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig, SceneLoader& sceneLoader) : config_{config}, hScene_{hScene}, lk_{m_}, cameraConfig_{cameraConfig}, sceneLoader_{sceneLoader} {
         newConfig_ = config_;
         renderTasks_ = taskGen_.generateEqualTasks(config.gpuNumber * config.streamsPerGpu, config.resolution.width, config.resolution.height);
         framebuffer_ = std::make_shared<Framebuffer>(config.resolution);
@@ -90,6 +90,10 @@ public:
             reset();
             config_.gpuNumber = newConfig_.gpuNumber;
             config_.streamsPerGpu = newConfig_.streamsPerGpu;
+            if (shouldReloadScene) {
+                hScene_ = sceneLoader_.load(config_.modelPath);
+                shouldReloadScene = false;
+            }
             setup();
         } 
 
@@ -201,6 +205,10 @@ public:
         return framebuffer_->getResolution().height;
     }
 
+    void reloadScene() {
+        shouldReloadScene = true;
+    }
+
     void updatePrimitives() {
         shouldReloadWorld = true;
     }
@@ -222,5 +230,7 @@ private:
     RendererConfig newConfig_{};
     bool shouldUpdatePathTracerParams = false;
     bool shouldReloadWorld = false;
+    bool shouldReloadScene = false;
     CameraConfig& cameraConfig_;
+    SceneLoader& sceneLoader_;
 };

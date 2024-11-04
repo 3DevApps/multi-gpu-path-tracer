@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 
     auto start_init = std::chrono::high_resolution_clock::now();
 
-    RenderManager manager(config, hScene, cameraConfig);
+    RenderManager manager(config, hScene, cameraConfig, sceneLoader);
 
     auto stop_init = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop_init - start_init);
