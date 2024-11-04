@@ -185,8 +185,12 @@ public:
         completedStreams_ = 0;
     }
 
+    std::shared_ptr<Framebuffer> getFramebuffer() {
+        return framebuffer_;
+    }
+
     uint8_t* getCurrentFrame() {
-        return framebuffer_->getPtr();
+        return framebuffer_->getRGBPtr();
     }
 
     unsigned int getCurrentFrameWidth() {

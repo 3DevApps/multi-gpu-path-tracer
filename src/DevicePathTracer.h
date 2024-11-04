@@ -67,17 +67,19 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, bvh **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, bvh **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
-    int pixel_index = (task.offset_y + j) * res.width + (task.offset_x + i);
+    int x = task.offset_x + i;
+    int y = task.offset_y + j;
+    int pixel_index = (res.height - y - 1) * res.width + x;
     curandState local_rand_state = rand_state[pixel_index];
     //Antialiasing
     float3 col = make_float3(0, 0, 0);
     for (int s=0; s<sample_per_pixel; s++) {
-        float u = float(task.offset_x + i + curand_uniform(&local_rand_state)) / float(res.width);
-        float v = float(task.offset_y + j + curand_uniform(&local_rand_state)) / float(res.height);
+        float u = float(x + curand_uniform(&local_rand_state)) / float(res.width);
+        float v = float(y + curand_uniform(&local_rand_state)) / float(res.height);
         ray r = (*cam)->get_ray(u, v);
         col += (*cam)->ray_color(r, world, cameraConfig, recursionDepth, &local_rand_state);
     }
@@ -91,9 +93,24 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
     //     color_modifier = make_float3(0.8, 0.4, 1);
     // }
     int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
-    fb[3 * pixel_index] = color.x;
-    fb[3 * pixel_index + 1] = color.y;
-    fb[3 * pixel_index + 2] = color.z;
+    // RGB format
+    fb_rgb[3 * pixel_index] = color.x;
+    fb_rgb[3 * pixel_index + 1] = color.y;
+    fb_rgb[3 * pixel_index + 2] = color.z;
+    // YUV 4:2:0 format
+    fb_yuv[pixel_index] = ((66 * color.x + 129 * color.y + 25 * color.z + 128) >> 8) + 16;
+    int blockRow = pixel_index / res.width;
+    int blockCol = pixel_index % res.width;
+    if (blockRow % 2 == 0 && blockCol % 2 == 0)
+    {
+        int totalPixels = res.width * res.height;
+        int uvSize = totalPixels / 4;
+        int uOffset = totalPixels;                 
+        int vOffset = totalPixels + uvSize;    
+        int uvIndex = (blockRow / 2) * (res.width / 2) + (blockCol / 2);
+        fb_yuv[uOffset + uvIndex] = ((-38 * color.x - 74 * color.y + 112 * color.z + 128) >> 8) + 128;
+        fb_yuv[vOffset + uvIndex] = ((112 * color.x - 94 * color.y - 18 * color.z + 128) >> 8) + 128;
+    }
 }
 
 /**
@@ -161,7 +178,8 @@ public:
 
         cudaSetDevice(device_idx_);
         render<<<blocks, threadBlockSize_, 0, stream>>>(
-            framebuffer_->getPtr(), 
+            framebuffer_->getRGBPtr(), 
+            framebuffer_->getYUVPtr(),
             task, 
             framebuffer_->getResolution(),
             samplesPerPixel_,
