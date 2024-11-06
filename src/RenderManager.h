@@ -68,7 +68,8 @@ public:
                     &threadSemaphore_, 
                     &threadCv_, 
                     &completedStreams_, 
-                    devicePathTracers_[i]
+                    devicePathTracers_[i],
+                    renderTasks_
                 ));
                 streamThreads_[i][j]->start();
             }
@@ -171,9 +172,19 @@ public:
         }
     }
 
+    bool first = true;
+
     void renderFrame() {
         updatePathTracingParamsIfNeeded();
         reloadWorldIfNeeded();
+
+        if (first) {
+            first = false;
+        }
+        else {
+            adjustTasks();
+        }
+        
 
         for (int i = 0; i < renderTasks_.size(); i++) {
             queue_.Produce(std::move(renderTasks_[i]));
@@ -199,6 +210,62 @@ public:
 
     void updatePrimitives() {
         shouldReloadWorld = true;
+    }
+
+    void adjustTasks() {
+        std::vector<int> horizontalDiv;
+        float sum = 0;
+        int blockSize = 8;
+
+        for(int i = 0; i < renderTasks_.size(); i++) {
+            sum += renderTasks_[i].time;
+        }
+
+        float targetTime = sum / (float)renderTasks_.size();
+
+        int offset = 0;
+        int currentIdx = 0;
+        int prevOffset = 0;
+        int taskLeft = 0;
+
+        int blockCount = framebuffer_->getResolution().width / blockSize;//
+        std::vector<float> blockTime(blockCount);
+
+        int it = 0;
+        int renderTaskBlocks;
+        for (int i = 0; i < renderTasks_.size(); i++) {
+            renderTaskBlocks = renderTasks_[i].width / blockSize;
+            for (int j = 0; j < renderTaskBlocks; j++) {
+                blockTime[it++] = renderTasks_[i].time / (float)renderTaskBlocks;
+            }
+        }
+
+        for (; it < blockTime.size(); it++) {
+            blockTime[it] = renderTasks_[renderTasks_.size() - 1].time / (float)renderTaskBlocks;
+        }
+
+        float current = 0;
+        for (int i = 1; i < blockTime.size(); i++) {
+            if (current + blockTime[i] > targetTime) {
+                horizontalDiv.push_back((i - 1) * blockSize);
+                current = 0;
+            }
+            else {
+                current += blockTime[i];
+            }
+        }
+
+        printf("horizontal size %d\n", horizontalDiv.size());
+        renderTasks_[0].offset_x = 0;
+        renderTasks_[0].width = framebuffer_->getResolution().width;
+        int i = 0;
+        while (i < horizontalDiv.size()) {
+            renderTasks_[i].width = horizontalDiv[i] - renderTasks_[i].offset_x;
+            renderTasks_[i + 1].offset_x = horizontalDiv[i];
+            i++;
+        }
+
+        renderTasks_[i].width = framebuffer_->getResolution().width - renderTasks_[i].offset_x;
     }
 
 private:

@@ -14,10 +14,10 @@ enum SchedulingAlgorithmType {
 
 struct RendererConfig {
     std::string jobId = "0";
-    unsigned int samplesPerPixel = 20; 
+    unsigned int samplesPerPixel = 10; 
     unsigned int recursionDepth = 3; 
     std::string modelPath{};
-    unsigned int gpuNumber = 2;
+    unsigned int gpuNumber = 4;
     unsigned int streamsPerGpu = 1;
     Resolution resolution{400, 400}; 
     SchedulingAlgorithmType algorithmType = BASIC_SCHEDULING; // TODO: add support for different algorithms
