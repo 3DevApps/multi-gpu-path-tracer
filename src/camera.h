@@ -45,7 +45,7 @@ public:
      * @param local_rand_state The pointer to the random number generator state for the current thread.
      * @return The color of the ray.
      */
-    __device__ float3 ray_color(const ray& r, bvh **world, CameraConfig& cameraConfig, unsigned int recursionDepth, curandState* local_rand_state) {
+    __device__ float3 ray_color(const ray& r, BVH **world, CameraConfig& cameraConfig, unsigned int recursionDepth, curandState* local_rand_state) {
         recalculate_camera_params(cameraConfig);
         ray cur_ray = r;
         float3 cur_attenuation = make_float3(1.0, 1.0, 1.0);

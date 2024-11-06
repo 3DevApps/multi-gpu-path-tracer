@@ -23,15 +23,7 @@ public:
         interval y_interval = interval(min(v0.position.y,min(v1.position.y,v2.position.y)),max(v0.position.y,max(v1.position.y,v2.position.y)));
         interval z_interval = interval(min(v0.position.z,min(v1.position.z,v2.position.z)),max(v0.position.x,max(v1.position.z,v2.position.z)));
         bbox = aabb(x_interval, y_interval, z_interval);
-        // printf("triangle---------------------- \n");
-        // printf("v0: %f %f %f \n", v0.position.x, v0.position.y, v0.position.z);
-        // printf("v1: %f %f %f \n", v1.position.x, v1.position.y, v1.position.z);
-        // printf("v2: %f %f %f \n", v2.position.x, v2.position.y, v2.position.z);
-
-        // printf("bounding box: \n");
-        // printf("min: %f %f %f\n", bbox.x.min, bbox.y.min, bbox.z.min);
-        // printf("max: %f %f %f\n", bbox.x.max, bbox.y.max, bbox.z.max);
-        // printf("----------------------------\n");
+        centroid = (v0_.position + v1_.position + v2_.position) * 0.3333f;
     }
 
     __device__ bool hit(const ray& r, interval ray_t, hit_record& rec) const;
@@ -39,6 +31,7 @@ public:
     Vertex v0_, v1_, v2_;
     UniversalMaterial *mat_ptr_;
     aabb bbox;
+    float3 centroid;
 };
 
 __device__ bool triangle::hit(const ray& r, interval ray_t, hit_record& rec) const {
