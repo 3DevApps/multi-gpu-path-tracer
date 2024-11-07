@@ -11,18 +11,23 @@
 #include "DevicePathTracer.h"
 #include "SafeQueue.h"
 #include <thread>
+#include "barrier.h"
 
 
 class StreamThread {
 public:
-    StreamThread(int device_idx, SafeQueue<RenderTask> &queue, semaphore* thread_semaphore, std::condition_variable* thread_cv, std::atomic_int* completed_streams, std::shared_ptr<DevicePathTracer> devicePathTracer, std::vector<RenderTask> &tasks):
+    StreamThread(int device_idx, SafeQueue<RenderTask> &queue, semaphore* thread_semaphore, std::condition_variable* thread_cv, std::atomic_int* completed_streams, std::shared_ptr<DevicePathTracer> devicePathTracer, std::vector<RenderTask> &tasks, std::condition_variable* shouldThreadStartCV, std::mutex& mutex, bool &shouldStart, Barrier& barrier):
         deviceIdx{device_idx},
         devicePathTracer{devicePathTracer},
         queue{queue},
         thread_semaphore{thread_semaphore},
         thread_cv{thread_cv},
         completed_streams{completed_streams}, 
-        tasks_{tasks} {
+        tasks_{tasks},
+        shouldThreadStartCV_{shouldThreadStartCV}, 
+        m_{mutex}, 
+        shouldStart_{shouldStart}, 
+        barrier_{barrier} {
         
         cudaSetDevice(device_idx);
         checkCudaErrors(cudaGetLastError());
@@ -63,28 +68,32 @@ public:
 
         //todo queue is not important
         while(!shouldTerminate){
-            while(!shouldTerminate && queue.ConsumeSync(task)) {
-                auto start = std::chrono::high_resolution_clock::now();
+            std::cout << "before lock..." << std::endl;
 
-                // devicePathTracer->renderTaskAsync(task, stream);
-                devicePathTracer->renderTaskAsync(tasks_[deviceIdx], stream);
-                devicePathTracer->synchronizeStream(stream);
+            barrier_.wait(); //wair for all threads before start
 
-                //set time for task 
+            auto start = std::chrono::high_resolution_clock::now();
 
-                
-                // manager.renderFrame();
-                auto stop = std::chrono::high_resolution_clock::now();
-                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-                // std::cout << "path tracing for id: " << deviceIdx << " took : " << duration.count() << "ms" << std::endl;
+            // devicePathTracer->renderTaskAsync(task, stream);
+            devicePathTracer->renderTaskAsync(tasks_[deviceIdx], stream);
+            devicePathTracer->synchronizeStream(stream);
 
-                tasks_[deviceIdx].time = duration.count();
+            //set time for task 
 
-                completed_streams->fetch_add(1);
-                thread_cv->notify_all();
-                if (shouldTerminate) {
-                    return;
-                }
+            
+            // manager.renderFrame();
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+            // std::cout << "path tracing for id: " << deviceIdx << " took : " << duration.count() << "ms" << std::endl;
+
+            tasks_[deviceIdx].time = duration.count();
+
+            std::cout << "waiting on barrier..." << std::endl;
+
+            barrier_.wait();
+
+            if (shouldTerminate) {
+                return;
             }
         }
     }
@@ -101,4 +110,8 @@ private:
     cudaStream_t stream;
     std::thread thread_{};
     std::vector<RenderTask> &tasks_;
+    std::mutex& m_;
+    bool& shouldStart_;
+    std::condition_variable* shouldThreadStartCV_;
+    Barrier& barrier_;
 };

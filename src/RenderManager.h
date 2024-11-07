@@ -20,14 +20,40 @@
 #include <vector>
 #include "RendererConfig.h"
 #include "Framebuffer.h"
+#include "barrier.h"
 
 class RenderManager { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig) : config_{config}, hScene_{hScene}, lk_{m_}, cameraConfig_{cameraConfig} {
+        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig) : config_{config}, hScene_{hScene}, cameraConfig_{cameraConfig}, barrier_{config.gpuNumber * config.streamsPerGpu + 1} {
         newConfig_ = config_;
         renderTasks_ = taskGen_.generateEqualTasks(config.gpuNumber * config.streamsPerGpu, config.resolution.width, config.resolution.height);
         framebuffer_ = std::make_shared<Framebuffer>(config.resolution);
         setup();
+
+        std::cout << "number of threads: " << config.gpuNumber * config.streamsPerGpu << std::endl;
+
+        int maxRowTask = 2;
+        int task = 0;
+        while (task < config.gpuNumber * config.streamsPerGpu) {
+            taskLayout.push_back({});
+            int rowTask = 0;
+            while (rowTask < maxRowTask && task < config.gpuNumber * config.streamsPerGpu) {
+                taskLayout[taskLayout.size() - 1].push_back(task);
+                task++;
+                rowTask++;
+            }
+        }
+
+        printf("layout: \n");
+        for (int i = 0; i < taskLayout.size(); i++) {
+            for (int j = 0; j < taskLayout[i].size(); j++) {
+                printf("%d ", taskLayout[i][j]);
+            }
+            printf("\n");
+        }
+
+        offsets = std::vector<int>(taskLayout.size());
+        heights = std::vector<int>(taskLayout.size());
     }
 
     void reset() {
@@ -69,7 +95,11 @@ public:
                     &threadCv_, 
                     &completedStreams_, 
                     devicePathTracers_[i],
-                    renderTasks_
+                    renderTasks_,
+                    &shouldThreadStartCV_,
+                    threadStartMutex,
+                    shouldThreadStart,
+                    barrier_
                 ));
                 streamThreads_[i][j]->start();
             }
@@ -172,6 +202,47 @@ public:
         }
     }
 
+    void adjustTasks() {
+        std::vector<std::vector<int>> hDivs{};
+        std::vector<int> vDivs = getDivPointsVert();
+        for (int i = 0; i < taskLayout.size(); i++) {
+            hDivs.push_back(getDivPointsHoriz(i));
+        }
+
+        // adjust widths and x offsets of tasks
+        for (int rowIdx = 0; rowIdx < taskLayout.size(); rowIdx++) {
+            renderTasks_[taskLayout[rowIdx][0]].offset_x = 0;
+            // renderTasks_[taskLayout[rowIdx][0]].width = framebuffer_->getResolution().width;
+            int i = 0;
+            while (i < hDivs[rowIdx].size()) {
+                renderTasks_[taskLayout[rowIdx][i]].width = hDivs[rowIdx][i] - renderTasks_[taskLayout[rowIdx][i]].offset_x;
+                renderTasks_[taskLayout[rowIdx][i + 1]].offset_x = hDivs[rowIdx][i];
+                i++;
+            }
+            renderTasks_[taskLayout[rowIdx][i]].width = framebuffer_->getResolution().width - renderTasks_[taskLayout[rowIdx][i]].offset_x;
+        }
+
+
+        // adjust heights and y offset
+        offsets[0] = 0;
+        heights[0] = framebuffer_->getResolution().height;
+        int i = 0;
+        while (i < vDivs.size()) {
+            heights[i] = vDivs[i] - offsets[i];
+            offsets[i + 1] = vDivs[i];
+            i++;
+        }
+        heights[i] = framebuffer_->getResolution().height - offsets[i];
+
+
+        for (int i = 0; i < taskLayout.size(); i++) {
+            for (int j = 0; j < taskLayout[i].size(); j++) {
+                renderTasks_[taskLayout[i][j]].offset_y = offsets[i];
+                renderTasks_[taskLayout[i][j]].height = heights[i];
+            }
+        }
+    }
+
     bool first = true;
 
     void renderFrame() {
@@ -184,15 +255,19 @@ public:
         else {
             adjustTasks();
         }
+
+        printf("after adjust\n");
         
 
-        for (int i = 0; i < renderTasks_.size(); i++) {
-            queue_.Produce(std::move(renderTasks_[i]));
-        }
+        barrier_.wait();
 
-        while(completedStreams_ != config_.streamsPerGpu * config_.gpuNumber) {
-            threadCv_.wait(lk_);
-        }
+        //path tracer works here...
+
+        barrier_.wait(); // wair for rendering end
+
+        printf("after rendering\n");
+            
+        std::cout << "all finished." << std::endl;
         completedStreams_ = 0;
     }
 
@@ -212,60 +287,114 @@ public:
         shouldReloadWorld = true;
     }
 
-    void adjustTasks() {
-        std::vector<int> horizontalDiv;
+
+    std::vector<float> getBlockTimes(std::vector<int> &taskTimes, std::vector<int> &taskLengths, int length) { // return vector with block times
+        int blockSize = 8;
+        int blockCount = length / blockSize;//
+        std::vector<float> blockTimes(blockCount);
+
+        int it = 0;
+        int renderTaskBlocks;
+        for(int i = 0; i < taskTimes.size(); i++) {
+            renderTaskBlocks = taskLengths[i] / blockSize;
+            for (int j = 0; j < renderTaskBlocks; j++) {
+                blockTimes[it++] = taskTimes[i] / (float)renderTaskBlocks;
+            }
+        }
+        return blockTimes;
+    }
+
+    std::vector<int> getDivPoints(std::vector<float>&blockTimes, int taskCount, float targetTime) {
+        float current = 0;
+        int blockSize = 8;
+        std::vector<int> divPoints;
+        for (int i = 1; i < blockTimes.size(); i++) {
+            if (blockTimes.size() - i == taskCount - 1 - divPoints.size()) {
+                divPoints.push_back((i - 1) * blockSize);
+                current = 0;
+            }
+            else if (current + blockTimes[i] > targetTime) {
+                divPoints.push_back((i - 1) * blockSize);
+                current = 0;
+            }
+            else {
+                current += blockTimes[i];
+            }
+        }
+        return divPoints;
+    }
+
+    std::vector<int> getDivPointsVert() {
+        float sum = 0;
+        int blockSize = 8;
+        std::vector<int> rowTimes; 
+
+        for(int i = 0; i < taskLayout.size(); i++) {
+            int s = 0;
+            for (int j = 0; j < taskLayout[i].size(); j++) {
+                s += renderTasks_[taskLayout[i][j]].time;
+            }
+
+            rowTimes.push_back(s); // adjust horizontal and get time
+            printf("rowTimes: %d\n", rowTimes[i]);
+            sum += rowTimes[i];
+        }
+
+        float targetTime = sum / (float)taskLayout.size();
+        //new block times count
+        std::vector<int> currentTimes;
+        std::vector<int> currentLengths;
+        for (int i = 0; i < taskLayout.size(); i++) {
+            currentTimes.push_back(rowTimes[i]);
+            currentLengths.push_back(renderTasks_[taskLayout[i][0]].height);
+        }
+        std::vector<float> blockTimes = getBlockTimes(currentTimes, currentLengths, framebuffer_->getResolution().height);
+        std::vector<int> vertDiv = getDivPoints(blockTimes, taskLayout.size(), targetTime);
+
+        printf("vert_size size %d, vals:\n", vertDiv.size());
+
+        for (int i = 0; i < vertDiv.size(); i++) {
+            printf("v: %d\n", vertDiv[i]);
+        }
+
+        return vertDiv;
+    }
+
+    //adjust tasks in specific row
+    std::vector<int> getDivPointsHoriz(int rowIdx) {
         float sum = 0;
         int blockSize = 8;
 
-        for(int i = 0; i < renderTasks_.size(); i++) {
-            sum += renderTasks_[i].time;
+        for(int i = 0; i < taskLayout[rowIdx].size(); i++) {
+            sum += renderTasks_[taskLayout[rowIdx][i]].time;
         }
 
-        float targetTime = sum / (float)renderTasks_.size();
+        float targetTime = sum / (float)taskLayout[rowIdx].size();
 
         int offset = 0;
         int currentIdx = 0;
         int prevOffset = 0;
         int taskLeft = 0;
 
-        int blockCount = framebuffer_->getResolution().width / blockSize;//
-        std::vector<float> blockTime(blockCount);
+        int blockCount = framebuffer_->getResolution().width / blockSize;
 
-        int it = 0;
-        int renderTaskBlocks;
-        for (int i = 0; i < renderTasks_.size(); i++) {
-            renderTaskBlocks = renderTasks_[i].width / blockSize;
-            for (int j = 0; j < renderTaskBlocks; j++) {
-                blockTime[it++] = renderTasks_[i].time / (float)renderTaskBlocks;
-            }
+        //new block times count
+        std::vector<int> currentTaskTimes;
+        std::vector<int> currentTaskLengths;
+        for (int i = 0; i < taskLayout[rowIdx].size(); i++) {
+            currentTaskTimes.push_back(renderTasks_[taskLayout[rowIdx][i]].time);
+            currentTaskLengths.push_back(renderTasks_[taskLayout[rowIdx][i]].width);
         }
+        std::vector<float> blockTimes = getBlockTimes(currentTaskTimes, currentTaskLengths, framebuffer_->getResolution().width);
+        std::vector<int> horizontalDiv = getDivPoints(blockTimes, taskLayout[rowIdx].size(), targetTime);
 
-        for (; it < blockTime.size(); it++) {
-            blockTime[it] = renderTasks_[renderTasks_.size() - 1].time / (float)renderTaskBlocks;
-        }
-
-        float current = 0;
-        for (int i = 1; i < blockTime.size(); i++) {
-            if (current + blockTime[i] > targetTime) {
-                horizontalDiv.push_back((i - 1) * blockSize);
-                current = 0;
-            }
-            else {
-                current += blockTime[i];
-            }
-        }
-
+        // return horizontalDiv;
         printf("horizontal size %d\n", horizontalDiv.size());
-        renderTasks_[0].offset_x = 0;
-        renderTasks_[0].width = framebuffer_->getResolution().width;
-        int i = 0;
-        while (i < horizontalDiv.size()) {
-            renderTasks_[i].width = horizontalDiv[i] - renderTasks_[i].offset_x;
-            renderTasks_[i + 1].offset_x = horizontalDiv[i];
-            i++;
+        for (int i = 0; i < horizontalDiv.size(); i++) {
+            printf("h: %d\n", horizontalDiv[i]);
         }
 
-        renderTasks_[i].width = framebuffer_->getResolution().width - renderTasks_[i].offset_x;
+        return horizontalDiv;
     }
 
 private:
@@ -273,12 +402,15 @@ private:
     TaskGenerator taskGen_{};
     SafeQueue<RenderTask> queue_{};
     std::condition_variable threadCv_{};
+    std::condition_variable shouldThreadStartCV_{};
+    bool shouldThreadStart;
+    std::mutex threadStartMutex;
     semaphore threadSemaphore_{0};
     std::atomic_int completedStreams_ = 0;
     std::shared_ptr<Framebuffer> framebuffer_;
     HostScene& hScene_; 
     std::mutex m_;
-    std::unique_lock<std::mutex> lk_;
+    // std::unique_lock<std::mutex> lk_;
     std::vector<RenderTask> renderTasks_{};
     std::vector<std::vector<std::shared_ptr<StreamThread>>> streamThreads_{};    
     RendererConfig& config_;
@@ -286,4 +418,8 @@ private:
     bool shouldUpdatePathTracerParams = false;
     bool shouldReloadWorld = false;
     CameraConfig& cameraConfig_;
+    Barrier barrier_;
+    std::vector<std::vector<int>> taskLayout{};
+    std::vector<int> offsets;
+    std::vector<int> heights;
 };
