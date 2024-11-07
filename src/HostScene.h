@@ -79,5 +79,4 @@ private:
     std::mutex texCacheMutex_;
     std::string resourcePath_;
     Assimp::Importer importer;
-    std::string loadPath_;
 };

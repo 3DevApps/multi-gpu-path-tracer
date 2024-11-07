@@ -90,10 +90,6 @@ public:
             reset();
             config_.gpuNumber = newConfig_.gpuNumber;
             config_.streamsPerGpu = newConfig_.streamsPerGpu;
-            if (shouldReloadScene) {
-                hScene_ = sceneLoader_.load(config_.modelPath);
-                shouldReloadScene = false;
-            }
             setup();
         } 
 
@@ -206,7 +202,9 @@ public:
     }
 
     void reloadScene() {
-        shouldReloadScene = true;
+        std::string objPath = "../files/f" + config.jobId + ".glb";
+        hScene_ = sceneLoader_.load(objPath);
+        shouldReloadWorld = true;
     }
 
     void updatePrimitives() {
@@ -230,7 +228,6 @@ private:
     RendererConfig newConfig_{};
     bool shouldUpdatePathTracerParams = false;
     bool shouldReloadWorld = false;
-    bool shouldReloadScene = false;
     CameraConfig& cameraConfig_;
     SceneLoader& sceneLoader_;
 };
