@@ -82,4 +82,8 @@ public:
 
 private:
     CameraConfig &cameraConfig;
+
+    double getRadians(double value) {
+        return M_PI * value / 180.0;
+    }
 };
