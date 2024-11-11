@@ -202,7 +202,7 @@ public:
     }
 
     void reloadScene() {
-        std::string objPath = "../files/f" + config.jobId + ".glb";
+        std::string objPath = "../files/f" + config_.jobId + ".glb";
         hScene_ = sceneLoader_.load(objPath);
         shouldReloadWorld = true;
     }
