@@ -111,6 +111,14 @@ public:
         }
         shouldUpdatePathTracerParams = false;
 
+        if (config_.algorithmType != newConfig_.algorithmType) {
+            config_.algorithmType = newConfig_.algorithmType;
+        }
+
+        if (config_.showTasks != newConfig_.showTasks) {
+            config_.showTasks = newConfig_.showTasks;
+        }
+
         if (config_.gpuNumber != newConfig_.gpuNumber || config_.streamsPerGpu != newConfig_.streamsPerGpu) {
             reset();
             config_.gpuNumber = newConfig_.gpuNumber;
@@ -192,6 +200,7 @@ public:
 
     void setShowTasks(bool val) {
         newConfig_.showTasks = val;
+        shouldUpdatePathTracerParams = true;
     }
 
     void reloadWorldIfNeeded() {
