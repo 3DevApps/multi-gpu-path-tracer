@@ -23,12 +23,12 @@
 #include "barrier.h"
 #include <algorithm>
 
-class RenderManager { 
+class RenderManager {
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig, SceneLoader& sceneLoader) : 
-        config_{config}, 
-        hScene_{hScene}, 
-        cameraConfig_{cameraConfig}, 
+        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig, SceneLoader& sceneLoader) :
+        config_{config},
+        hScene_{hScene},
+        cameraConfig_{cameraConfig},
         barrier_{config.gpuNumber * config.streamsPerGpu + 1},
         sceneLoader_{sceneLoader} {
 
@@ -54,12 +54,12 @@ public:
 
     void reset() {
         for (int i = 0; i < config_.gpuNumber; i++) {
-            for (int j = 0; j < config_.streamsPerGpu; j++) { 
+            for (int j = 0; j < config_.streamsPerGpu; j++) {
                 streamThreads_[i][j]->finish();
             }
         }
         for (int i = 0; i < config_.gpuNumber; i++) {
-            for (int j = 0; j < config_.streamsPerGpu; j++) { 
+            for (int j = 0; j < config_.streamsPerGpu; j++) {
                 streamThreads_[i][j]->join();
             }
         }
@@ -74,20 +74,20 @@ public:
 
         for (int i = 0; i < config_.gpuNumber; i++) {
             devicePathTracers_.push_back(std::make_shared<DevicePathTracer>(
-                i, 
-                config_.samplesPerPixel, 
-                config_.recursionDepth, 
-                config_.threadBlockSize, 
-                hScene_, 
+                i,
+                config_.samplesPerPixel,
+                config_.recursionDepth,
+                config_.threadBlockSize,
+                hScene_,
                 framebuffer_,
                 cameraConfig_
             ));
 
-            streamThreads_.push_back({}); 
+            streamThreads_.push_back({});
             streamThreads_[i].reserve(config_.streamsPerGpu);
             for (int j = 0; j < config_.streamsPerGpu; j++) {
                 streamThreads_[i].push_back(std::make_shared<StreamThread>(
-                    i, 
+                    i,
                     devicePathTracers_[i],
                     renderTasks_,
                     barrier_
@@ -98,9 +98,9 @@ public:
 
         taskLayout_ = getTaskLayout(config_.maxTasksInRow);
         renderTasks_ = taskGen_.generateEqualTasks(
-            threadCount_, 
-            taskLayout_, 
-            config_.resolution.width, 
+            threadCount_,
+            taskLayout_,
+            config_.resolution.width,
             config_.resolution.height
         );
     }
@@ -116,7 +116,7 @@ public:
             config_.gpuNumber = newConfig_.gpuNumber;
             config_.streamsPerGpu = newConfig_.streamsPerGpu;
             setup();
-        } 
+        }
 
         if (config_.resolution.width != newConfig_.resolution.width || config_.resolution.height != newConfig_.resolution.height) {
             config_.resolution = newConfig_.resolution;
@@ -211,7 +211,7 @@ public:
 	    auto horizDivPoints = getHorizDivPoints();
 	    auto vertDivPoints = getVertDivPoints();
 
-        //adjust widths and offset_x for tasks 
+        //adjust widths and offset_x for tasks
         for (int rowIdx = 0; rowIdx < taskLayout_.size(); rowIdx++) {
             int i = 0;
 		    renderTasks_[taskLayout_[rowIdx][0]].offset_x = 0;
@@ -224,7 +224,7 @@ public:
                     if (task.offset_x + task.width > framebuffer_->getResolution().width) {
                         task.width = framebuffer_->getResolution().height - task.offset_x;
                     }
-                    nextTask.offset_x = task.offset_x + task.width; 
+                    nextTask.offset_x = task.offset_x + task.width;
 		        }
 		        else {
                     task.width = std::max(newWidth, static_cast<int>(task.width - config_.threadBlockSize.x));
@@ -274,7 +274,7 @@ public:
         updatePathTracingParamsIfNeeded();
         reloadWorldIfNeeded();
 
-        if (config_.algorithmType == FTDL) {
+        if (config_.algorithmType == DTFL) {
             adjustTasksDTFL();
         }
 
@@ -291,34 +291,25 @@ public:
 
 
     void markTasks() {
-	    uint8_t* fb = framebuffer_->getRGBPtr();
 	    for (int i = 0; i < renderTasks_.size(); i++) {
 		    for (int x = 0; x < renderTasks_[i].width; x++) {
 			    int pixel_index = renderTasks_[i].offset_y * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
-			    fb[3 * pixel_index] = 0;
-			    fb[3 * pixel_index + 1] = 0;
-			    fb[3 * pixel_index + 2] = 0;
+				framebuffer_->updatePixel(pixel_index, 0, 0, 0);
 		    }
 
 		    for (int x = 0; x < renderTasks_[i].width; x++) {
 			    int pixel_index = (renderTasks_[i].offset_y + renderTasks_[i].height) * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
-			    fb[3 * pixel_index] = 0;
-			    fb[3 * pixel_index + 1] = 0;
-			    fb[3 * pixel_index + 2] = 0;
+				framebuffer_->updatePixel(pixel_index, 0, 0, 0);
 		    }
 
 		    for (int y = 0; y < renderTasks_[i].height; y++) {
 			    int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x;
-			    fb[3 * pixel_index] = 0;
-			    fb[3 * pixel_index + 1] = 0;
-			    fb[3 * pixel_index + 2] = 0;
+				framebuffer_->updatePixel(pixel_index, 0, 0, 0);
 		    }
 
 		    for (int y = 0; y < renderTasks_[i].height; y++) {
 			    int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x + renderTasks_[i].width;
-			    fb[3 * pixel_index] = 0;
-			    fb[3 * pixel_index + 1] = 0;
-			    fb[3 * pixel_index + 2] = 0;
+				framebuffer_->updatePixel(pixel_index, 0, 0, 0);
 		    }
 	    }
     }
@@ -359,13 +350,13 @@ public:
         for (int i = 0; i < taskTimes.size(); i++) {
             sum += taskTimes[i];
         }
-        float targetTime = sum / (float)taskTimes.size(); 
+        float targetTime = sum / (float)taskTimes.size();
         int currentBlock = 0;
         float currentTime = 0;
         int divCount = taskTimes.size() - 1;
 
-        //iterate over tasks in a row and block widths inside task, 
-        //if current time is exceedes target time, division point is found 
+        //iterate over tasks in a row and block widths inside task,
+        //if current time is exceedes target time, division point is found
         int blocks = framebuffer_->getResolution().width / blockLength;
         for (int i = 0; i < taskTimes.size(); i++) {
             int blockCount = taskLengths[i] / blockLength;
@@ -384,13 +375,13 @@ public:
                 }
                 currentBlock++;
 
-                // if we found all division points (number of tasks in a row - 1), return 
+                // if we found all division points (number of tasks in a row - 1), return
                 if (divPoints.size() == divCount) {
                     return divPoints;
                 }
             }
         }
-        
+
         //we add divion points util we have the right number.
         while (divCount > divPoints.size()) {
             divPoints.push_back(currentBlock * blockLength);
@@ -434,9 +425,9 @@ private:
     std::vector<std::shared_ptr<DevicePathTracer>> devicePathTracers_{};
     TaskGenerator taskGen_{};
     std::shared_ptr<Framebuffer> framebuffer_;
-    HostScene& hScene_; 
+    HostScene& hScene_;
     std::vector<RenderTask> renderTasks_{};
-    std::vector<std::vector<std::shared_ptr<StreamThread>>> streamThreads_{};    
+    std::vector<std::vector<std::shared_ptr<StreamThread>>> streamThreads_{};
     RendererConfig& config_;
     RendererConfig newConfig_{};
     bool shouldUpdatePathTracerParams = false;
