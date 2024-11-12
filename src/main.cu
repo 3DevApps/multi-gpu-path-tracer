@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 
     auto start_init = std::chrono::high_resolution_clock::now();
 
-    RenderManager manager(config, hScene, cameraConfig);
+    RenderManager manager(config, hScene, cameraConfig, sceneLoader);
 
     auto stop_init = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop_init - start_init);
@@ -65,10 +65,10 @@ int main(int argc, char** argv) {
 
     #ifdef USE_LOCAL_RENDERER
     Window window(config.resolution.width, config.resolution.height, "MultiGPU-PathTracer", cameraConfig);
-    LocalRenderer localRenderer(window);
+    LocalRenderer localRenderer(window, manager.getFramebuffer());
     Renderer &renderer = localRenderer;
     #else
-    RemoteRenderer remoteRenderer(config.jobId, config);
+    RemoteRenderer remoteRenderer(config.jobId, config, manager.getFramebuffer());
     RemoteEventHandlers remoteEventHandlers(remoteRenderer, manager, hScene, cameraConfig);
     Renderer &renderer = remoteRenderer;
     #endif
@@ -82,8 +82,8 @@ int main(int argc, char** argv) {
         manager.renderFrame();
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-        std::cout << "path tracing took: " << duration.count() << "ms" << std::endl;
-        renderer.renderFrame(manager.getCurrentFrame());
+        std::cout << "Path Tracing took: " << duration.count() << "ms" << std::endl;
+        renderer.renderFrame();
 	}
 
     manager.reset();

@@ -25,11 +25,13 @@
 
 class RenderManager { 
 public:
-        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig) : 
+        RenderManager(RendererConfig &config, HostScene &hScene, CameraConfig& cameraConfig, SceneLoader& sceneLoader) : 
         config_{config}, 
         hScene_{hScene}, 
         cameraConfig_{cameraConfig}, 
-        barrier_{config.gpuNumber * config.streamsPerGpu + 1} {
+        barrier_{config.gpuNumber * config.streamsPerGpu + 1},
+        sceneLoader_{sceneLoader} {
+
         newConfig_ = config_;
         setup();
     }
@@ -289,7 +291,7 @@ public:
 
 
     void markTasks() {
-	    uint8_t* fb = framebuffer_->getPtr();
+	    uint8_t* fb = framebuffer_->getRGBPtr();
 	    for (int i = 0; i < renderTasks_.size(); i++) {
 		    for (int x = 0; x < renderTasks_[i].width; x++) {
 			    int pixel_index = renderTasks_[i].offset_y * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
@@ -321,8 +323,12 @@ public:
 	    }
     }
 
+    std::shared_ptr<Framebuffer> getFramebuffer() {
+        return framebuffer_;
+    }
+
     uint8_t* getCurrentFrame() {
-        return framebuffer_->getPtr();
+        return framebuffer_->getRGBPtr();
     }
 
     unsigned int getCurrentFrameWidth() {
@@ -331,6 +337,12 @@ public:
 
     unsigned int getCurrentFrameHeight() {
         return framebuffer_->getResolution().height;
+    }
+
+    void reloadScene() {
+        std::string objPath = "../files/f" + config_.jobId + ".glb";
+        hScene_ = sceneLoader_.load(objPath);
+        shouldReloadWorld = true;
     }
 
     void updatePrimitives() {
@@ -433,4 +445,5 @@ private:
     Barrier barrier_;
     std::vector<std::vector<int>> taskLayout_;
     int threadCount_;
+    SceneLoader& sceneLoader_;
 };

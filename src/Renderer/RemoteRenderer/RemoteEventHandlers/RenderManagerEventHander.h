@@ -38,7 +38,7 @@ class RenderManagerEventHander: EventHandler {
                 unsigned int height = std::stoi(parsedRawData.substr(sepPos+1));
                 manager.setResolution({width, height});
             } else if (command == "LOAD_UPLOADED_SCENE") {
-                // hScene.loadUploadedScene();
+                manager.reloadScene();
             } else if (command == "DOWNLOAD_SCENE_SNAPSHOT") {
                 remoteRenderer.generateAndSendSnapshot();
             }

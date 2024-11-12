@@ -1,25 +1,27 @@
 #include "JPEGEncoder.h"
 
-bool JPEGEncoder::encodePixelData(const std::vector<uint8_t>& pixelData, const int width, const int height, std::vector<uint8_t>& outputData) {
+bool JPEGEncoder::encodePixelData(const uint8_t *frame, const int width, const int height, std::vector<uint8_t> &outputData)
+{
     tjhandle _jpegCompressor = tjInitCompress();
-    if (_jpegCompressor == nullptr) {
+    if (_jpegCompressor == nullptr)
+    {
         std::cerr << "Failed to initialize jpeg compressor" << std::endl;
         return false;
     }
 
-    unsigned char* compressedImage = nullptr;
+    unsigned char *compressedImage = nullptr;
     unsigned long compressedSize = 0;
 
     if (tjCompress2(
             _jpegCompressor,
-            (unsigned char*)pixelData.data(),
+            const_cast<unsigned char *>(frame),
             width,
             0, // pitch (0 = width * bytes per pixel)
             height,
             TJPF_RGB, // Pixel format
             &compressedImage,
             &compressedSize,
-            TJSAMP_444, // Subsampling
+            TJSAMP_444,  // Subsampling
             jpegQuality, // JPEG quality
             TJFLAG_FASTDCT) != 0)
     {
