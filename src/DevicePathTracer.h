@@ -21,6 +21,7 @@ struct RenderTask {
     int height;
     int offset_x;
     int offset_y;
+    int time = 0;
 };
 
 struct Scene {
@@ -82,15 +83,7 @@ __global__ void render(uint8_t *fb, RenderTask task, Resolution res, int sample_
         col += (*cam)->ray_color(r, world, cameraConfig, recursionDepth, &local_rand_state);
     }
 
-    float3 color_modifier = make_float3(1, 1, 1);
-    int device_idx;
-    cudaGetDevice(&device_idx);
-    // if(device_idx == 0){
-    //     color_modifier = make_float3(1, 1, 1);
-    // }else if(device_idx == 1){
-    //     color_modifier = make_float3(0.8, 0.4, 1);
-    // }
-    int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
+    int3 color = make_int3(255.99 * col/float(sample_per_pixel)); //average color of samples
     fb[3 * pixel_index] = color.x;
     fb[3 * pixel_index + 1] = color.y;
     fb[3 * pixel_index + 2] = color.z;
@@ -155,6 +148,9 @@ public:
     }
 
     void renderTaskAsync(RenderTask &task, cudaStream_t stream) {
+        if (task.width == 0)
+            return;
+        
         dim3 blocks(task.width / threadBlockSize_.x + 1, task.height / threadBlockSize_.y + 1);
 
         cudaSetDevice(device_idx_);
