@@ -218,7 +218,6 @@ public:
 
         //adjust widths and offset_x for tasks
         for (int rowIdx = 0; rowIdx < taskLayout_.size(); rowIdx++) {
-            int i = 0;
 		    renderTasks_[taskLayout_[rowIdx][0]].offset_x = 0;
             for (int i = 0; i < horizDivPoints[rowIdx].size(); i++) {
                 auto &task = renderTasks_[taskLayout_[rowIdx][i]];

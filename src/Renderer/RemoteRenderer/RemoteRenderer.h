@@ -32,8 +32,10 @@ public:
 
 private:
     const std::string SERVER_URL = "wss://pathtracing-relay-server.klatka.it/?path-tracing-job=true&jobId=";
+    const std::string STREAMING_SERVER_URL = "wss://pathtracing-streaming-server.klatka.it/?path-tracing-job=true&jobId=";
     std::string &jobId;
     ix::WebSocket webSocket;
+    ix::WebSocket streamingWebSocket;
     std::unordered_map<std::string, LambdaFunction> eventListeners;
     std::uint32_t view_width;
     std::uint32_t view_height;
