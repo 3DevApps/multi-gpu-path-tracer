@@ -1,6 +1,6 @@
 #include "RemoteRenderer.h"
 
-RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> framebuffer)
+RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> &framebuffer)
     : jobId(jobId), config(config), framebuffer(framebuffer)
 {
     snapshotDataEncoder = std::make_shared<PNGEncoder>();

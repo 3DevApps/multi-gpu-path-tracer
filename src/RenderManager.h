@@ -53,14 +53,10 @@ public:
     }
 
     void reset() {
+        barrier_.wait();
         for (int i = 0; i < config_.gpuNumber; i++) {
             for (int j = 0; j < config_.streamsPerGpu; j++) {
-                streamThreads_[i][j]->finish();
-            }
-        }
-        for (int i = 0; i < config_.gpuNumber; i++) {
-            for (int j = 0; j < config_.streamsPerGpu; j++) {
-                streamThreads_[i][j]->join();
+                streamThreads_[i][j]->detach();
             }
         }
 
@@ -71,7 +67,7 @@ public:
     void setup() {
         framebuffer_ = std::make_shared<Framebuffer>(config_.resolution);
         threadCount_ = config_.gpuNumber * config_.streamsPerGpu;
-
+        barrier_.reset(threadCount_ + 1);
         for (int i = 0; i < config_.gpuNumber; i++) {
             devicePathTracers_.push_back(std::make_shared<DevicePathTracer>(
                 i,
@@ -323,12 +319,16 @@ public:
 	    }
     }
 
-    std::shared_ptr<Framebuffer> getFramebuffer() {
+    std::shared_ptr<Framebuffer>& getFramebuffer() {
         return framebuffer_;
     }
 
     uint8_t* getCurrentFrame() {
         return framebuffer_->getRGBPtr();
+    }
+
+    uint8_t* getYUVFrame() {
+        return framebuffer_->getYUVPtr();
     }
 
     unsigned int getCurrentFrameWidth() {

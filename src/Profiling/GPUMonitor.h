@@ -23,7 +23,7 @@
                      nvmlErrorString( status ),                                                                        \
                      status );                                                                                         \
     }
-#endif 
+#endif
 
 struct DeviceInfo {
     nvmlDevice_t device_handle;
@@ -39,23 +39,29 @@ public:
     void logLatestStats();
     ~GPUMonitor();
     std::string getLatestStats();
+    void updateFps();
 
 private:
     unsigned int device_count_;
     std::vector<DeviceInfo> device_infos_;
     size_t free_byte;
     size_t total_byte;
+    int average_fps_ = 0;
+    int frame_count_ = 0;
+    int fps_ = 0;
+    int current_fps_ = 0;
+    std::chrono::time_point<std::chrono::high_resolution_clock> last_fps_update_;
 };
 
 class MonitorThread {
 public:
-    MonitorThread(Renderer &renderer) : renderer(renderer) {}
+    MonitorThread(Renderer &renderer);
     void operator()();
     void safeTerminate();
+    void updateFps();
 
 private:
     std::atomic_bool shouldTerminate = false;
     Renderer &renderer;
+    GPUMonitor monitor_;
 };
-
-

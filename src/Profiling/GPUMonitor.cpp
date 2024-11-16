@@ -22,17 +22,17 @@ GPUMonitor::GPUMonitor() {
     for (int i = 0; i < device_count_; i++) {
         device_infos_.push_back({});
         NVML_RT_CALL(nvmlDeviceGetHandleByIndex(i, &device_infos_[i].device_handle));
-        NVML_RT_CALL(nvmlDeviceGetName(device_infos_[i].device_handle, 
-                                        device_infos_[i].name, 
+        NVML_RT_CALL(nvmlDeviceGetName(device_infos_[i].device_handle,
+                                        device_infos_[i].name,
                                         NVML_DEVICE_NAME_V2_BUFFER_SIZE));
     }
 }
 
 void GPUMonitor::queryStats() {
     for (int i = 0; i < device_count_; i++) {
-        NVML_RT_CALL( nvmlDeviceGetMemoryInfo(device_infos_[i].device_handle, 
+        NVML_RT_CALL( nvmlDeviceGetMemoryInfo(device_infos_[i].device_handle,
                                                 &device_infos_[i].memory_info));
-        NVML_RT_CALL(nvmlDeviceGetUtilizationRates(device_infos_[i].device_handle, 
+        NVML_RT_CALL(nvmlDeviceGetUtilizationRates(device_infos_[i].device_handle,
                                                     &device_infos_[i].utilization));
         checkCudaErrors(cudaMemGetInfo( &free_byte, &total_byte ));
     }
@@ -53,12 +53,28 @@ void GPUMonitor::logLatestStats() {
             printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n",
                 used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
     }
-    std::cout << "-------------------------------------------------------------------------" << std::endl; 
+    std::cout << "-------------------------------------------------------------------------" << std::endl;
+}
+
+void GPUMonitor::updateFps() {
+    frame_count_++;
 }
 
 std::string GPUMonitor::getLatestStats() {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - last_fps_update_);
+
+    if (duration.count() > 0) {
+        fps_ = frame_count_ / duration.count();
+        frame_count_ = 0;
+        last_fps_update_ = now;
+        average_fps_ = (average_fps_ + fps_) / 2;
+    }
+
     std::ostringstream stats;
     for (int i = 0; i < device_count_; i++) {
+        stats << "FPS|FPS|" << fps_ << "|";
+        stats << "FPS|Average FPS|" << average_fps_ << "|";
         stats << "MB|Mem Total GPU " << i << "|" << device_infos_[i].memory_info.total / 1000000 << "|";
         stats << "MB|Mem Free GPU " << i << "|" << device_infos_[i].memory_info.free / 1000000 << "|";
         stats << "%|GPU Util GPU " << i << "|" << device_infos_[i].utilization.gpu << "|";
@@ -71,15 +87,24 @@ GPUMonitor::~GPUMonitor() {
     NVML_RT_CALL(nvmlShutdown());
 }
 
-void MonitorThread::operator()() {
+MonitorThread::MonitorThread(Renderer &renderer) : renderer(renderer) {
     GPUMonitor monitor;
+    monitor_ = monitor;
+}
+
+void MonitorThread::operator()() {
     while (!shouldTerminate) {
-        monitor.queryStats();
-        monitor.logLatestStats();
-        std::string statsMessage = "JOB_MESSAGE#RENDER_STATS#" + monitor.getLatestStats();
+        monitor_.queryStats();
+        monitor_.logLatestStats();
+        std::string statsMessage = "JOB_MESSAGE#RENDER_STATS#" + monitor_.getLatestStats();
         renderer.send(statsMessage);
         std::this_thread::sleep_for( std::chrono::milliseconds(500));
     }
+}
+
+
+void MonitorThread::updateFps() {
+    monitor_.updateFps();
 }
 
 void MonitorThread::safeTerminate() {

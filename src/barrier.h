@@ -53,6 +53,14 @@ class Barrier {
             //       have reached the barrier and are ready to be unblocked.
         }
     }
+
+    // Reset the barrier for use with a new number of threads.
+    void reset(std::size_t new_thread_num) {
+        std::unique_lock<std::mutex> lock(mut);
+        num_threads = new_thread_num;
+        wait_count = 0;
+        instance = 0;
+    }
  private:
     std::size_t num_threads; // number of threads using barrier
     std::size_t wait_count; // counter to keep track of waiting threads

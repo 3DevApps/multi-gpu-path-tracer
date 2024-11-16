@@ -21,7 +21,7 @@ public:
         devicePathTracer{devicePathTracer},
         tasks_{tasks},
         barrier_{barrier} {
-        
+
         cudaSetDevice(device_idx);
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
@@ -32,14 +32,14 @@ public:
 
         cudaEventCreate(&event);
         checkCudaErrors(cudaGetLastError());
-        checkCudaErrors(cudaDeviceSynchronize());   
+        checkCudaErrors(cudaDeviceSynchronize());
     }
 
     ~StreamThread() {
         shouldTerminate = true;
         if(thread_.joinable()) {
             thread_.join();
-        } 
+        }
     }
 
     void start() {
@@ -53,7 +53,12 @@ public:
     void join() {
         if(thread_.joinable()) {
             thread_.join();
-        } 
+        }
+    }
+
+    void detach() {
+        finish();
+        thread_.detach();
     }
 
     void threadMain() {
@@ -62,7 +67,15 @@ public:
         while(!shouldTerminate){
             std::cout << "before lock..." << std::endl;
 
+            if (shouldTerminate) {
+                return;
+            }
+
             barrier_.wait(); //wair for all threads before start
+
+            if (shouldTerminate) {
+                return;
+            }
 
             auto start = std::chrono::high_resolution_clock::now();
 
@@ -70,13 +83,17 @@ public:
             devicePathTracer->renderTaskAsync(tasks_[deviceIdx], stream);
             devicePathTracer->synchronizeStream(stream);
 
-            //set time for task 
+            //set time for task
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 
             tasks_[deviceIdx].time = duration.count();
 
             std::cout << "waiting on barrier..." << std::endl;
+
+            if (shouldTerminate) {
+                return;
+            }
 
             barrier_.wait();
 
