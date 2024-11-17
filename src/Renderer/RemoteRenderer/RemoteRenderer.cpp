@@ -22,26 +22,27 @@ RemoteRenderer::~RemoteRenderer()
     webSocket.stop();
 }
 
-void RemoteRenderer::addMessageListener(std::string eventName, LambdaFunction listener)
+void RemoteRenderer::addMessageListener(Event::EventType eventType, LambdaFunction listener)
 {
-    eventListeners.try_emplace(eventName, listener);
+    eventListeners.try_emplace(eventType, listener);
 }
 
-void RemoteRenderer::removeMessageListener(std::string eventName)
+void RemoteRenderer::removeMessageListener(Event::EventType eventType)
 {
-    eventListeners.erase(eventName);
+    eventListeners.erase(eventType);
 }
 
 void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr &msg)
 {
     if (msg->type == ix::WebSocketMessageType::Message)
     {
-        auto sepPos = msg->str.find("#");
-        std::string messageKey = msg->str.substr(0, sepPos);
-        auto listener = eventListeners.find(messageKey);
+        Event event;
+        event.ParseFromString(msg->str);
+        std::cout << "Received event: " << event.type() << std::endl;
+        auto listener = eventListeners.find(event.type());
         if (listener != eventListeners.end())
         {
-            listener->second(msg->str.substr(sepPos + 1));
+            listener->second(event);
         }
     }
     else if (msg->type == ix::WebSocketMessageType::Open)
@@ -68,7 +69,7 @@ std::vector<uint8_t> RemoteRenderer::prepareFrame(const uint8_t *frame, const st
         outputData.clear();
     }
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "Encoding time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    // std::cout << "Encoding time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     return outputData;
 }
 

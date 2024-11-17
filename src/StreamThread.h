@@ -65,7 +65,7 @@ public:
         RenderTask task;
 
         while(!shouldTerminate){
-            std::cout << "before lock..." << std::endl;
+            // std::cout << "before lock..." << std::endl;
 
             if (shouldTerminate) {
                 return;
@@ -89,7 +89,7 @@ public:
 
             tasks_[deviceIdx].time = duration.count();
 
-            std::cout << "waiting on barrier..." << std::endl;
+            // std::cout << "waiting on barrier..." << std::endl;
 
             if (shouldTerminate) {
                 return;

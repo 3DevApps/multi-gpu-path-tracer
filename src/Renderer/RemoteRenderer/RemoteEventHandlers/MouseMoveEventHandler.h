@@ -25,19 +25,17 @@ class MouseMoveEventHandler: EventHandler {
 
             cameraConfig.front = normalize(make_float3(
                 cos(getRadians(yaw)) * cos(getRadians(pitch)),
-                sin(getRadians(pitch)), 
+                sin(getRadians(pitch)),
                 sin(getRadians(yaw)) * cos(getRadians(pitch))));
         };
 
-        void handleEvent(const std::string& message) override {
-            auto sepPos = message.find("#");
-            auto xoffset = std::stod(message.substr(0, sepPos));
-            auto yoffset = std::stod(message.substr(sepPos+1));
-            handleMouseMove(xoffset, yoffset);
+        void handleEvent(const Event& event) override {
+            auto mouseMoveEvent = event.mousemove();
+            handleMouseMove(mouseMoveEvent.xoffset(), mouseMoveEvent.yoffset());
         };
-        
-        std::string getEventName() override {
-            return "MOUSE_MOVE";
+
+        Event::EventType getEventType() override {
+            return Event::MOUSE_MOVE;
         };
 
     private:

@@ -13,7 +13,7 @@ public:
 
     void generateTasks(int num_tasks, std::vector<RenderTask> &tasks) {
         int task_width = width_ / num_tasks;
-        std::cout << "Task width: " << task_width << std::endl;
+        // std::cout << "Task width: " << task_width << std::endl;
         exit(0);
         int task_height = height_;
         for (int i = 0; i < num_tasks; i++) {
@@ -49,7 +49,7 @@ public:
 
         for (int i = 0; i < task_count - 1; i++) {
             tasks.push_back({task_width, height, i * task_width, 0});
-        } 
+        }
         tasks.push_back({width - (task_count - 1) * task_width, height, (task_count - 1) * task_width, 0});
         return tasks;
     }
@@ -69,11 +69,11 @@ public:
 	    }
 
 	    for (int i = 0; i < taskLayout.size(); i++) {
-		    tasks[taskLayout[i][taskLayout[i].size() - 1]].width = width - tasks[taskLayout[i][taskLayout[i].size() - 1]].offset_x; 
+		    tasks[taskLayout[i][taskLayout[i].size() - 1]].width = width - tasks[taskLayout[i][taskLayout[i].size() - 1]].offset_x;
 	    }
 
 	    for (int i = 0; i < taskLayout[taskLayout.size() - 1].size(); i++) {
-		    tasks[taskLayout[taskLayout.size() - 1][i]].height = height - tasks[taskLayout[taskLayout.size() - 1][i]].offset_y; 
+		    tasks[taskLayout[taskLayout.size() - 1][i]].height = height - tasks[taskLayout[taskLayout.size() - 1][i]].offset_y;
 	    }
 
 	    return tasks;

@@ -95,7 +95,7 @@ MonitorThread::MonitorThread(Renderer &renderer) : renderer(renderer) {
 void MonitorThread::operator()() {
     while (!shouldTerminate) {
         monitor_.queryStats();
-        monitor_.logLatestStats();
+        // monitor_.logLatestStats();
         std::string statsMessage = "JOB_MESSAGE#RENDER_STATS#" + monitor_.getLatestStats();
         renderer.send(statsMessage);
         std::this_thread::sleep_for( std::chrono::milliseconds(500));

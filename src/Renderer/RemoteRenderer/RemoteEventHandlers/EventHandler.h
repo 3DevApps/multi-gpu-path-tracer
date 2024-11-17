@@ -1,7 +1,8 @@
 #pragma once
+#include "../../../genproto/main.pb.h"
 
 class EventHandler {
     public:
-        virtual std::string getEventName() = 0;
-        virtual void handleEvent(const std::string& message) = 0;
+        virtual Event::EventType getEventType() = 0;
+        virtual void handleEvent(const Event& event) = 0;
 };
