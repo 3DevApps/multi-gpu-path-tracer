@@ -46,7 +46,7 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr &msg)
     }
     else if (msg->type == ix::WebSocketMessageType::Open)
     {
-        webSocket.send("JOB_MESSAGE#NOTIFICATION#SUCCESS#JOB_INIT#Job has started!");
+        webSocket.send("NOTIFICATION#SUCCESS#JOB_INIT#Job has started!");
         std::cout << "Connection established" << std::endl;
     }
     else if (msg->type == ix::WebSocketMessageType::Error)
@@ -68,7 +68,7 @@ std::vector<uint8_t> RemoteRenderer::prepareFrame(const uint8_t *frame, const st
         outputData.clear();
     }
     auto end = std::chrono::high_resolution_clock::now();
-    // std::cout << "Encoding time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+    std::cout << "Encoding time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
     return outputData;
 }
 
@@ -104,7 +104,7 @@ void RemoteRenderer::generateAndSendSnapshotIfNeeded()
     std::vector<uint8_t> outputData = processFrameForSnapshot(frame);
     if (!outputData.empty())
     {
-        std::string messagePrefix = "JOB_MESSAGE#SNAPSHOT#";
+        std::string messagePrefix = "SNAPSHOT#";
         std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
         outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
         ix::IXWebSocketSendData IXPixelData(outputData);

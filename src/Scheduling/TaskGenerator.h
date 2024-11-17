@@ -13,7 +13,7 @@ public:
 
     void generateTasks(int num_tasks, std::vector<RenderTask> &tasks) {
         int task_width = width_ / num_tasks;
-        // std::cout << "Task width: " << task_width << std::endl;
+        std::cout << "Task width: " << task_width << std::endl;
         exit(0);
         int task_height = height_;
         for (int i = 0; i < num_tasks; i++) {
