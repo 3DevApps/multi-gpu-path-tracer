@@ -1,6 +1,6 @@
 #include "RemoteRenderer.h"
 
-RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> framebuffer)
+RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> &framebuffer)
     : jobId(jobId), config(config), framebuffer(framebuffer)
 {
     snapshotDataEncoder = std::make_shared<PNGEncoder>();
@@ -9,6 +9,12 @@ RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::
     webSocket.setUrl(SERVER_URL + jobId);
     webSocket.setOnMessageCallback(std::bind(&RemoteRenderer::onMessage, this, std::placeholders::_1));
     webSocket.start();
+
+    streamingWebSocket.setUrl(STREAMING_SERVER_URL + jobId);
+    streamingWebSocket.setOnMessageCallback([](const ix::WebSocketMessagePtr &msg) {
+        std::cout << "Streaming WebSocket message: " << msg->str << std::endl;
+    });
+    streamingWebSocket.start();
 }
 
 RemoteRenderer::~RemoteRenderer()
@@ -86,7 +92,7 @@ void RemoteRenderer::renderFrame()
         std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
         outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
         ix::IXWebSocketSendData IXPixelData(outputData);
-        webSocket.sendBinary(IXPixelData);
+        streamingWebSocket.sendBinary(IXPixelData);
     }
     generateAndSendSnapshotIfNeeded();
 }

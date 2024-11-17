@@ -6,5 +6,5 @@
 #SBATCH -t 01:00:00
 
 cd ~/multi-gpu-path-tracer
-source ./scripts/ares_setup.sh 
+source ./scripts/ares_setup.sh
 build/cuda_project "$1" "$2"

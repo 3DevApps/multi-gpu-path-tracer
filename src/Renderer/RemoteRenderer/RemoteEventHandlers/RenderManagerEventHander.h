@@ -41,9 +41,27 @@ class RenderManagerEventHander: EventHandler {
                 manager.reloadScene();
             } else if (command == "DOWNLOAD_SCENE_SNAPSHOT") {
                 remoteRenderer.generateAndSendSnapshot();
+            } else if (command == "SHOW_TASK_GRID") {
+                auto showTaskGrid = parsedRawData == "true";
+                manager.setShowTasks(showTaskGrid);
+            } else if (command == "LOAD_BALANCING_ALGORITHM") {
+                auto loadBalancingAlgorithm = parseSchedulingAlgorithmType(parsedRawData);
+                manager.setSchedulingAlgorithm(loadBalancingAlgorithm);
             }
         };
-        
+
+        SchedulingAlgorithmType parseSchedulingAlgorithmType(const std::string& algorithm) {
+            if (algorithm == "FST") {
+                return SchedulingAlgorithmType::FST;
+            } else if (algorithm == "DTFL") {
+                return SchedulingAlgorithmType::DTFL;
+            } else if (algorithm == "DT") {
+                return SchedulingAlgorithmType::DT;
+            } else {
+                return SchedulingAlgorithmType::FST;
+            }
+        };
+
         std::string getEventName() override {
             return "RENDERER_PARAMETER";
         };

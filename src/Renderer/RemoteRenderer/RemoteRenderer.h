@@ -19,7 +19,7 @@ class RemoteRenderer : public Renderer
 public:
     using LambdaFunction = std::function<void(std::string)>;
 
-    RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> framebuffer);
+    RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> &framebuffer);
     ~RemoteRenderer();
     std::vector<uint8_t> processFrameForStreaming(const uint8_t *frame);
     std::vector<uint8_t> processFrameForSnapshot(const uint8_t *frame);
@@ -32,8 +32,10 @@ public:
 
 private:
     const std::string SERVER_URL = "wss://pathtracing-relay-server.klatka.it/?path-tracing-job=true&jobId=";
+    const std::string STREAMING_SERVER_URL = "wss://pathtracing-streaming-server.klatka.it/?path-tracing-job=true&jobId=";
     std::string &jobId;
     ix::WebSocket webSocket;
+    ix::WebSocket streamingWebSocket;
     std::unordered_map<std::string, LambdaFunction> eventListeners;
     std::uint32_t view_width;
     std::uint32_t view_height;
@@ -42,7 +44,7 @@ private:
     bool stopRenderer = false;
     RendererConfig &config;
     bool generateAndSendSnapshotFlag = false;
-    std::shared_ptr<Framebuffer> framebuffer;
+    std::shared_ptr<Framebuffer> &framebuffer;
 
     void onMessage(const ix::WebSocketMessagePtr &msg);
     void generateAndSendSnapshotIfNeeded();
