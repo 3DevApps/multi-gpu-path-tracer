@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+message MouseMoveEvent {
+    double xOffset = 1;
+    double yOffset = 2;
+}
+
+message CameraEvent {
+    enum Type {
+        FORWARD = 0;
+        BACKWARD = 1;
+        LEFT = 2;
+        RIGHT = 3;
+        UP = 4;
+        DOWN = 5;
+        FOV_INCREASE = 6;
+        FOV_DECREASE = 7;
+        PITCH_YAW = 8;
+        SCENE_POSITION = 9;
+    }
+
+    message Position {
+        double x = 1;
+        double y = 2;
+        double z = 3;
+    }
+
+    message Rotation {
+        double pitch = 1;
+        double yaw = 2;
+    }
+
+    Type type = 1;
+    oneof camera_event {
+        double moveSpeed = 2;
+        Position position = 3;
+        Rotation rotation = 4;
+    }
+}
+
+message RendererEvent {
+    enum Type {
+        LOAD_UPLOADED_SCENE = 0;
+        DOWNLOAD_SCENE_SNAPSHOT = 1;
+        GPU_NUMBER = 2;
+        STREAMS_PER_GPU = 3;
+        SAMPLES_PER_PIXEL = 4;
+        RECURSION_DEPTH = 5;
+        THREAD_BLOCK_SIZE = 6;
+        IMAGE_RESOLUTION = 7;
+        SHOW_TASK_GRID = 8;
+        LOAD_BALANCING_ALGORITHM = 9;
+    }
+
+    enum LoadBalancingAlgorithm {
+        FST = 0;
+        DTFL = 1;
+        DT = 2;
+    }
+
+    message Block {
+        int32 x = 1;
+        int32 y = 2;
+    }
+
+    Type type = 1;
+    oneof renderer_event {
+        int32 numberValue = 2;
+        Block blockValue = 3;
+        bool booleanValue = 4;
+        LoadBalancingAlgorithm loadBalancingAlgorithm = 5;
+    }
+}
+
+message Event {
+    enum EventType {
+        UNKNOWN = 0;
+        MOUSE_MOVE = 1;
+        CAMERA_EVENT = 2;
+        RENDERER_EVENT = 3;
+    }
+
+    EventType type = 1;
+    oneof event_type {
+        MouseMoveEvent mouseMove = 2;
+        CameraEvent camera = 3;
+        RendererEvent renderer = 4;
+    }
+}

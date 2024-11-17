@@ -13,11 +13,12 @@
 #include "../../RendererConfig.h"
 #include "../../CameraConfig.h"
 #include "../../Framebuffer.h"
+#include "../../genproto/main.pb.h"
 
 class RemoteRenderer : public Renderer
 {
 public:
-    using LambdaFunction = std::function<void(std::string)>;
+    using LambdaFunction = std::function<void(Event&)>;
 
     RemoteRenderer(std::string &jobId, RendererConfig &config, std::shared_ptr<Framebuffer> &framebuffer);
     ~RemoteRenderer();
@@ -26,8 +27,8 @@ public:
     void renderFrame() override;
     void send(const std::string &data) override;
     bool shouldStopRendering() override;
-    void addMessageListener(std::string eventName, LambdaFunction listener);
-    void removeMessageListener(std::string eventName);
+    void addMessageListener(Event::EventType eventType, LambdaFunction listener);
+    void removeMessageListener(Event::EventType eventType);
     void generateAndSendSnapshot();
 
 private:
@@ -36,7 +37,7 @@ private:
     std::string &jobId;
     ix::WebSocket webSocket;
     ix::WebSocket streamingWebSocket;
-    std::unordered_map<std::string, LambdaFunction> eventListeners;
+    std::unordered_map<Event::EventType, LambdaFunction> eventListeners;
     std::uint32_t view_width;
     std::uint32_t view_height;
     std::shared_ptr<PixelDataEncoder> snapshotDataEncoder;

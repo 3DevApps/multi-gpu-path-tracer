@@ -22,31 +22,31 @@ RemoteRenderer::~RemoteRenderer()
     webSocket.stop();
 }
 
-void RemoteRenderer::addMessageListener(std::string eventName, LambdaFunction listener)
+void RemoteRenderer::addMessageListener(Event::EventType eventType, LambdaFunction listener)
 {
-    eventListeners.try_emplace(eventName, listener);
+    eventListeners.try_emplace(eventType, listener);
 }
 
-void RemoteRenderer::removeMessageListener(std::string eventName)
+void RemoteRenderer::removeMessageListener(Event::EventType eventType)
 {
-    eventListeners.erase(eventName);
+    eventListeners.erase(eventType);
 }
 
 void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr &msg)
 {
     if (msg->type == ix::WebSocketMessageType::Message)
     {
-        auto sepPos = msg->str.find("#");
-        std::string messageKey = msg->str.substr(0, sepPos);
-        auto listener = eventListeners.find(messageKey);
+        Event event;
+        event.ParseFromString(msg->str);
+        auto listener = eventListeners.find(event.type());
         if (listener != eventListeners.end())
         {
-            listener->second(msg->str.substr(sepPos + 1));
+            listener->second(event);
         }
     }
     else if (msg->type == ix::WebSocketMessageType::Open)
     {
-        webSocket.send("JOB_MESSAGE#NOTIFICATION#SUCCESS#JOB_INIT#Job has started!");
+        webSocket.send("NOTIFICATION#SUCCESS#JOB_INIT#Job has started!");
         std::cout << "Connection established" << std::endl;
     }
     else if (msg->type == ix::WebSocketMessageType::Error)
@@ -88,9 +88,6 @@ void RemoteRenderer::renderFrame()
     std::vector<uint8_t> outputData = processFrameForStreaming(frame);
     if (!outputData.empty())
     {
-        std::string messagePrefix = "JOB_MESSAGE#RENDER#";
-        std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
-        outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
         ix::IXWebSocketSendData IXPixelData(outputData);
         streamingWebSocket.sendBinary(IXPixelData);
     }
@@ -107,7 +104,7 @@ void RemoteRenderer::generateAndSendSnapshotIfNeeded()
     std::vector<uint8_t> outputData = processFrameForSnapshot(frame);
     if (!outputData.empty())
     {
-        std::string messagePrefix = "JOB_MESSAGE#SNAPSHOT#";
+        std::string messagePrefix = "SNAPSHOT#";
         std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
         outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
         ix::IXWebSocketSendData IXPixelData(outputData);
