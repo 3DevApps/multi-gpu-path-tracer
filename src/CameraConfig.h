@@ -3,7 +3,7 @@
 #include "helper_math.h"
 
 struct CameraConfig {
-    CameraConfig(float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f) : 
+    CameraConfig(float3 lookFrom, float3 front, float vfov = 45.0f, float hfov = 45.0f) :
         front{front},
         lookFrom{lookFrom},
         vfov{vfov},
@@ -12,5 +12,6 @@ struct CameraConfig {
     float3 lookFrom;
     float vfov = 45.0f;
     float hfov = 45.0f;
+    float pitch;
+    float yaw;
 };
-

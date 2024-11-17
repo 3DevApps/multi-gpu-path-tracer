@@ -7,26 +7,26 @@
 class MouseMoveEventHandler: EventHandler {
     public:
         MouseMoveEventHandler(CameraConfig& cameraConfig) : cameraConfig(cameraConfig) {
-            yaw = getDegrees(atan2(cameraConfig.front.z, cameraConfig.front.x));
-            pitch = getDegrees(asin(cameraConfig.front.y));
+            cameraConfig.yaw = getDegrees(atan2(cameraConfig.front.z, cameraConfig.front.x));
+            cameraConfig.pitch = getDegrees(asin(cameraConfig.front.y));
         };
 
         void handleMouseMove(double xoffset, double yoffset) {
             xoffset *= sensitivity;
             yoffset *= -sensitivity;
 
-            yaw += xoffset;
-            pitch += yoffset;
+            cameraConfig.yaw += xoffset;
+            cameraConfig.pitch += yoffset;
 
-            if (pitch > 89.0f)
-                pitch = 89.0f;
-            if (pitch < -89.0f)
-                pitch = -89.0f;
+            if (cameraConfig.pitch > 89.0f)
+                cameraConfig.pitch = 89.0f;
+            if (cameraConfig.pitch < -89.0f)
+                cameraConfig.pitch = -89.0f;
 
             cameraConfig.front = normalize(make_float3(
-                cos(getRadians(yaw)) * cos(getRadians(pitch)),
-                sin(getRadians(pitch)),
-                sin(getRadians(yaw)) * cos(getRadians(pitch))));
+                cos(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch)),
+                sin(getRadians(cameraConfig.pitch)),
+                sin(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch))));
         };
 
         void handleEvent(const Event& event) override {
@@ -41,8 +41,6 @@ class MouseMoveEventHandler: EventHandler {
     private:
         CameraConfig& cameraConfig;
         double sensitivity = 0.75f;
-        float pitch;
-        float yaw;
 
         double getRadians(double value) {
             return M_PI * value / 180.0;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 #include "EventHandler.h"
 
 class CameraEventHandler : EventHandler
@@ -39,10 +40,12 @@ public:
                 cameraConfig.hfov -= 1.0f;
                 break;
             case CameraEvent::PITCH_YAW:
+                cameraConfig.yaw = cameraEvent.rotation().yaw();
+                cameraConfig.pitch = cameraEvent.rotation().pitch();
                 cameraConfig.front = normalize(make_float3(
-                    cos(getRadians(cameraEvent.rotation().yaw())) * cos(getRadians(cameraEvent.rotation().pitch())),
-                    sin(getRadians(cameraEvent.rotation().pitch())),
-                    sin(getRadians(cameraEvent.rotation().yaw())) * cos(getRadians(cameraEvent.rotation().pitch()))));
+                    cos(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch)),
+                    sin(getRadians(cameraConfig.pitch)),
+                    sin(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch))));
                 break;
             case CameraEvent::SCENE_POSITION:
                 cameraConfig.lookFrom = make_float3(cameraEvent.position().x(), cameraEvent.position().y(), cameraEvent.position().z());

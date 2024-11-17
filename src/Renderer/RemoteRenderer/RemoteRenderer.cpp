@@ -38,7 +38,6 @@ void RemoteRenderer::onMessage(const ix::WebSocketMessagePtr &msg)
     {
         Event event;
         event.ParseFromString(msg->str);
-        std::cout << "Received event: " << event.type() << std::endl;
         auto listener = eventListeners.find(event.type());
         if (listener != eventListeners.end())
         {
@@ -89,9 +88,6 @@ void RemoteRenderer::renderFrame()
     std::vector<uint8_t> outputData = processFrameForStreaming(frame);
     if (!outputData.empty())
     {
-        std::string messagePrefix = "JOB_MESSAGE#RENDER#";
-        std::vector<uint8_t> messagePrefixVec(messagePrefix.begin(), messagePrefix.end());
-        outputData.insert(outputData.begin(), messagePrefixVec.begin(), messagePrefixVec.end());
         ix::IXWebSocketSendData IXPixelData(outputData);
         streamingWebSocket.sendBinary(IXPixelData);
     }
