@@ -31,7 +31,7 @@
 #endif
 
 int main(int argc, char** argv) {
-    RendererConfig config; 
+    RendererConfig config;
     SceneLoader sceneLoader;
     ArgumentLoader argLoader(argc, argv);
     argLoader.loadArguments(config);
@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
 
     CameraConfig cameraConfig(make_float3(0, 0, 0.5), make_float3(0, 0, -0.5));
     HostScene hScene = sceneLoader.load(config.modelPath);
-    
+
     /*
     changing parameters:
     manager.setSamplesPerPixel(30);
@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
         std::cout << "Path Tracing took: " << duration.count() << "ms" << std::endl;
         renderer.renderFrame();
+        monitor_thread_obj.updateFps();
 	}
 
     manager.reset();

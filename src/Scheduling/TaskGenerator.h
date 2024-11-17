@@ -42,6 +42,7 @@ public:
         }
     }
 
+    //generates tasks with equal size, positioned in a row
     std::vector<RenderTask> generateEqualTasks(int task_count, int width, int height) {
         int task_width = width / task_count;
         std::vector<RenderTask> tasks;
@@ -51,6 +52,31 @@ public:
         } 
         tasks.push_back({width - (task_count - 1) * task_width, height, (task_count - 1) * task_width, 0});
         return tasks;
+    }
+
+    //generates tasks with equal size, taskLayout specifies task positions on the screen
+    std::vector<RenderTask> generateEqualTasks(int taskCount, std::vector<std::vector<int>> &taskLayout, int width, int height) {
+	    std::vector<RenderTask> tasks(taskCount);
+	    int taskHeight = height / taskLayout.size();
+	    for (int i = 0; i < taskLayout.size(); i++) {
+		    int taskWidth = width / taskLayout[i].size();
+		    for (int j = 0; j < taskLayout[i].size(); j++) {
+			    tasks[taskLayout[i][j]].width = taskWidth;
+			    tasks[taskLayout[i][j]].offset_x = taskWidth * j;
+			    tasks[taskLayout[i][j]].height = taskHeight;
+			    tasks[taskLayout[i][j]].offset_y= taskHeight * i;
+		    }
+	    }
+
+	    for (int i = 0; i < taskLayout.size(); i++) {
+		    tasks[taskLayout[i][taskLayout[i].size() - 1]].width = width - tasks[taskLayout[i][taskLayout[i].size() - 1]].offset_x; 
+	    }
+
+	    for (int i = 0; i < taskLayout[taskLayout.size() - 1].size(); i++) {
+		    tasks[taskLayout[taskLayout.size() - 1][i]].height = height - tasks[taskLayout[taskLayout.size() - 1][i]].offset_y; 
+	    }
+
+	    return tasks;
     }
 
     void setRes(int width, int height) {

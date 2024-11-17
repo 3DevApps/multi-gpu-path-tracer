@@ -21,14 +21,15 @@ struct RenderTask {
     int height;
     int offset_x;
     int offset_y;
+    int time = 0;
 };
 
 struct Scene {
     BVH **d_world = nullptr;
     camera **d_camera = nullptr;
-    thrust::device_vector<BaseColorTexture> textures{}; 
+    thrust::device_vector<BaseColorTexture> textures{};
     thrust::device_vector<UniversalMaterial> materials{};
-    thrust::device_vector<triangle> faces{}; 
+    thrust::device_vector<triangle> faces{};
 };
 
 /**
@@ -41,7 +42,7 @@ struct Scene {
  * @param rand_state Pointer to the array of random number generator states.
  */
 __global__ void render_init(int nx, int ny, curandState *rand_state) {
-    //render_init doesnt have to be separate kernel, dona that way for clarity 
+    //render_init doesnt have to be separate kernel, dona that way for clarity
     //better performance to do it in the render kernel (will change later)
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
@@ -105,8 +106,8 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
     {
         int totalPixels = res.width * res.height;
         int uvSize = totalPixels / 4;
-        int uOffset = totalPixels;                 
-        int vOffset = totalPixels + uvSize;    
+        int uOffset = totalPixels;
+        int vOffset = totalPixels + uvSize;
         int uvIndex = (blockRow / 2) * (res.width / 2) + (blockCol / 2);
         fb_yuv[uOffset + uvIndex] = ((-38 * color.x - 74 * color.y + 112 * color.z + 128) >> 8) + 128;
         fb_yuv[vOffset + uvIndex] = ((112 * color.x - 94 * color.y - 18 * color.z + 128) >> 8) + 128;
@@ -123,23 +124,23 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
  * @param d_world Pointer to the device memory where the world will be stored.
  * @param d_camera Pointer to the device memory where the camera will be stored.
  * @param d_list Pointer to the device memory where the list of objects will be stored.
- * @param d_list_size Number of objects in objects array 
+ * @param d_list_size Number of objects in objects array
  */
 __global__ void create_world(BVH **d_world, triangle*d_list, int d_list_size) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {                                  
-        *d_world  = new BVH(d_list, d_list_size);      
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        *d_world  = new BVH(d_list, d_list_size);
     }
 }
 
 __global__ void create_camera(camera **d_camera) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) {                       
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
         *d_camera = new camera();
     }
 }
 
 __global__ void free_world(BVH **d_world) {
     if (*d_world) {
-        delete *d_world; 
+        delete *d_world;
         *d_world = nullptr;
     }
 }
@@ -147,24 +148,24 @@ __global__ void free_world(BVH **d_world) {
 class DevicePathTracer {
 public:
     DevicePathTracer(
-            int device_idx, 
+            int device_idx,
             unsigned int samplesPerPixel,
             unsigned int recursionDepth,
             dim3 threadBlockSize,
             HostScene& hostScene,
             std::shared_ptr<Framebuffer> framebuffer,
-            CameraConfig& cameraConfig) : 
+            CameraConfig& cameraConfig) :
             device_idx_{device_idx},
             samplesPerPixel_{samplesPerPixel},
             recursionDepth_{recursionDepth},
             hostScene_{hostScene},
-            threadBlockSize_{threadBlockSize}, 
-            framebuffer_{framebuffer}, 
+            threadBlockSize_{threadBlockSize},
+            framebuffer_{framebuffer},
             cameraConfig_{cameraConfig} {
-        
+
         cudaSetDevice(device_idx_);
-        checkCudaErrors(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 2000000000)); 
-        checkCudaErrors(cudaDeviceSetLimit(cudaLimitStackSize, 10000)); 
+        // checkCudaErrors(cudaDeviceSetLimit(cudaLimitMallocHeapSize, 2000000000));
+        // checkCudaErrors(cudaDeviceSetLimit(cudaLimitStackSize, 10000));
 
         reloadWorld();
         reloadCamera();
@@ -172,13 +173,16 @@ public:
     }
 
     void renderTaskAsync(RenderTask &task, cudaStream_t stream) {
+        if (task.width == 0)
+            return;
+
         dim3 blocks(task.width / threadBlockSize_.x + 1, task.height / threadBlockSize_.y + 1);
 
         cudaSetDevice(device_idx_);
         render<<<blocks, threadBlockSize_, 0, stream>>>(
-            framebuffer_->getRGBPtr(), 
+            framebuffer_->getRGBPtr(),
             framebuffer_->getYUVPtr(),
-            task, 
+            task,
             framebuffer_->getResolution(),
             samplesPerPixel_,
             scene_.d_camera,
@@ -207,7 +211,7 @@ public:
         cudaSetDevice(device_idx_);
         if (scene_.d_camera == nullptr) {
             checkCudaErrors(cudaMalloc((void **)&scene_.d_camera, sizeof(camera *)));
-        } 
+        }
 
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
@@ -219,14 +223,14 @@ public:
         for (const auto& texture : hostScene_.textures) {
             float3* d_tex;
             checkCudaErrors(cudaMalloc(
-                (void **)&d_tex, 
+                (void **)&d_tex,
                 texture.width * texture.height * sizeof(float3)
             ));
 
             cudaMemcpy(
-                d_tex, 
-                texture.data.data(), 
-                texture.width * texture.height * sizeof(float3), 
+                d_tex,
+                texture.data.data(),
+                texture.width * texture.height * sizeof(float3),
                 cudaMemcpyHostToDevice
             );
 
@@ -274,7 +278,7 @@ public:
                 hTriangle.v1,
                 hTriangle.v2,
                 thrust::raw_pointer_cast(&scene_.materials[hTriangle.materialIdx])
-            ); 
+            );
             scene_.faces.push_back(t);
         }
     }
@@ -312,7 +316,7 @@ public:
         if (d_rand_state_) {
             checkCudaErrors(cudaFree(d_rand_state_));
             d_rand_state_ = nullptr;
-        }  
+        }
 
         checkCudaErrors(cudaMalloc((void **)&d_rand_state_, num_pixels * sizeof(curandState)));
         dim3 blocks(framebuffer_->getResolution().width / threadBlockSize_.x + 1, framebuffer_->getResolution().height / threadBlockSize_.y + 1);
@@ -348,12 +352,10 @@ private:
     curandState *d_rand_state_ = nullptr;
     int number_of_faces_;
     dim3 threadBlockSize_;
-    Scene scene_{};   
+    Scene scene_{};
     HostScene& hostScene_;
     unsigned int samplesPerPixel_;
     unsigned int recursionDepth_;
     std::shared_ptr<Framebuffer> framebuffer_;
     CameraConfig& cameraConfig_;
 };
-
-

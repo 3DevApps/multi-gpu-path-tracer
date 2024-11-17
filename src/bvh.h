@@ -10,10 +10,10 @@
 
 struct BVHNode {
     aabb bbox;
-    uint leftNode, rightNode; 
-    bool isLeaf;           
-    uint firstTriIdx, triCount;   
-};  
+    uint leftNode, rightNode;
+    bool isLeaf;
+    uint firstTriIdx, triCount;
+};
 
 class BVH {
     public:
@@ -21,7 +21,7 @@ class BVH {
             list_ = list;
             indices = new int[size * 2 - 1];
             nodes = new BVHNode[size * 2 - 1];
-            for (int i = 0; i < size; i++) 
+            for (int i = 0; i < size; i++)
                 indices[i] = i;
 
             BVHNode& root = nodes[rootNodeIdx];
@@ -37,7 +37,7 @@ class BVH {
 
             // if node contains 5 or less primitives - termianate
             // makes build faster and does not have impact on query performance
-            if (node.triCount <= 5) 
+            if (node.triCount <= 5)
                 return;
 
             int axis;
@@ -47,8 +47,8 @@ class BVH {
             float splitCost = findBestSplitPlane(node, axis, splitPos);
             float nosplitCost = calculateNodeCost(node);
 
-            //split node into subnodes only if it results in better tree 
-            if (splitCost >= nosplitCost) 
+            //split node into subnodes only if it results in better tree
+            if (splitCost >= nosplitCost)
                 return;
 
             // in-place partition similar to quicksort
@@ -60,7 +60,7 @@ class BVH {
                     pos = list_[indices[i]].centroid.x;
                 }
                 else if (axis == 1) {
-                    pos = list_[indices[i]].centroid.y;             
+                    pos = list_[indices[i]].centroid.y;
                 }
                 else {
                     pos = list_[indices[i]].centroid.z;
@@ -77,7 +77,7 @@ class BVH {
                 // printf("leaf node kids: %d\n", node.triCount);
                 return;
             }
-                
+
             int leftChildIdx = nodesUsed++;
             int rightChildIdx = nodesUsed++;
             nodes[leftChildIdx].firstTriIdx = node.firstTriIdx;
@@ -179,9 +179,8 @@ class BVH {
             const BVHNode* stack[64];
             const BVHNode** stackPtr = stack;
 
-            *stackPtr++ = nullptr; 
+            *stackPtr++ = nullptr;
             bool found = false;
-            interval closest = ray_t;
             interval rt = ray_t;
             const BVHNode* node = &nodes[rootNodeIdx];
             float distL;
@@ -218,13 +217,13 @@ class BVH {
                             found = true;
                         }
                     }
-                }   
+                }
 
                 bool traverseL = (overlapL && childL->triCount == 0);
                 bool traverseR = (overlapR && childR->triCount == 0);
 
                 if (!traverseL && !traverseR) {
-                    node = *--stackPtr; 
+                    node = *--stackPtr;
                 }
                 else {
                     if (traverseL && traverseR) {
@@ -236,7 +235,7 @@ class BVH {
                             node = childL;
                             *stackPtr++ = childR;
                         }
-                        
+
                     }
                     else {
                         node = (traverseL) ? childL : childR;
