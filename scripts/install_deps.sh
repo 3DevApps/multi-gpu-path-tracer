@@ -2,9 +2,8 @@
 
 GLFW_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
 GLEW_URL="https://github.com/nigels-com/glew/releases/download/glew-2.2.0/glew-2.2.0.tgz"
-ASSIMP_URL="https://github.com/assimp/assimp/archive/refs/tags/v5.4.0.tar.gz"
-IXWEBSOCKET_URL="https://github.com/machinezone/IXWebSocket.git"
 GLM_URL=https://github.com/g-truc/glm/archive/refs/tags/1.0.1.tar.gz
+IXWEBSOCKET_URL="https://github.com/machinezone/IXWebSocket.git"
 
 
 LIB_PREFIX=~/libs
@@ -35,10 +34,12 @@ cmake_install_ixwebsocket () {
 download_lib () {
 	wget $1 -O "$ARCHIVE"
 	tar xf "$ARCHIVE"
-	rm -rf "$ARCHIVE"	
+	rm -rf "$ARCHIVE"
 }
 
-urls=("$GLFW_URL" "$GLEW_URL" "$ASSIMP_URL")
+urls=("$GLFW_URL" "$GLEW_URL" "$GLM_URL")
+
+sh proviz_ares_setup.sh
 
 for url in "${urls[@]}"; do
 	clear
@@ -50,14 +51,12 @@ for url in "${urls[@]}"; do
 	else
 		cd *
 	fi
-	
+
 	cmake_install
 
-	cd -	
+	cd -
 done
 
 cmake_install_ixwebsocket
 
 clear
-
-

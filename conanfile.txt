@@ -1,0 +1,8 @@
+[requires]
+assimp/5.4.3
+libjpeg-turbo/3.0.4
+libx264/cci.20240224
+protobuf/5.27.0
+[generators]
+CMakeDeps
+CMakeToolchain

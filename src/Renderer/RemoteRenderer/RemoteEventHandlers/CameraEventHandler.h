@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 #include "EventHandler.h"
 
 class CameraEventHandler : EventHandler
@@ -8,76 +9,55 @@ class CameraEventHandler : EventHandler
 public:
     CameraEventHandler(CameraConfig &cameraConfig) : cameraConfig(cameraConfig) {};
 
-    void handleEvent(const std::string &message) override
+    void handleEvent(const Event &event) override
     {
-        auto sepPos = message.find("#");
-        auto command = message.substr(0, sepPos);
-        auto parsedRawData = message.substr(sepPos + 1);
-
-        if (command == "FORWARD")
-        {
-            auto speed = std::stof(parsedRawData);
-            cameraConfig.lookFrom += speed * cameraConfig.front;
-        }
-        else if (command == "BACKWARD")
-        {
-            auto speed = std::stof(parsedRawData);
-            cameraConfig.lookFrom -= speed * cameraConfig.front;
-        }
-        else if (command == "LEFT")
-        {
-            auto speed = std::stof(parsedRawData);
-            cameraConfig.lookFrom += speed * cross(cameraConfig.front, make_float3(0.0f, -1.0f, 0.0f));
-        }
-        else if (command == "RIGHT")
-        {
-            auto speed = std::stof(parsedRawData);
-            cameraConfig.lookFrom += speed * cross(cameraConfig.front, make_float3(0.0f, 1.0f, 0.0f));
-        }
-        else if (command == "UP")
-        {
-            auto speed = std::stof(parsedRawData);
-            cameraConfig.lookFrom += speed * cross(cameraConfig.front, make_float3(-1.0f, 0.0f, 0.0f));
-        }
-        else if (command == "DOWN")
-        {
-            auto speed = std::stof(parsedRawData);
-            cameraConfig.lookFrom += speed * cross(cameraConfig.front, make_float3(1.0f, 0.0f, 0.0f));
-        }
-        else if (command == "FOV-")
-        {
-            cameraConfig.vfov += 1.0f;
-            cameraConfig.hfov += 1.0f;
-        }
-        else if (command == "FOV+")
-        {
-            cameraConfig.vfov -= 1.0f;
-            cameraConfig.hfov -= 1.0f;
-        }
-        else if (command == "PITCH_YAW")
-        {
-            auto sepPos = parsedRawData.find("#");
-            auto pitch = std::stof(parsedRawData.substr(0, sepPos));
-            auto yaw = std::stof(parsedRawData.substr(sepPos + 1));
-            cameraConfig.front = normalize(make_float3(
-                cos(getRadians(yaw)) * cos(getRadians(pitch)),
-                sin(getRadians(pitch)),
-                sin(getRadians(yaw)) * cos(getRadians(pitch))));
-        }
-        else if (command == "SCENE_POSITION")
-        {
-            auto sepPos1 = parsedRawData.find("#");
-            auto sepPos2 = parsedRawData.find("#", sepPos1 + 1);
-            auto x = std::stof(parsedRawData.substr(0, sepPos1));
-            auto y = std::stof(parsedRawData.substr(sepPos1 + 1, sepPos2 - sepPos1 - 1));
-            auto z = std::stof(parsedRawData.substr(sepPos2 + 1));
-            cameraConfig.lookFrom = make_float3(x, y, z);
+        auto cameraEvent = event.camera();
+        switch (cameraEvent.type()) {
+            case CameraEvent::FORWARD:
+                cameraConfig.lookFrom += cameraConfig.front * cameraEvent.movespeed();
+                break;
+            case CameraEvent::BACKWARD:
+                cameraConfig.lookFrom -= cameraConfig.front * cameraEvent.movespeed();
+                break;
+            case CameraEvent::LEFT:
+                cameraConfig.lookFrom += cross(cameraConfig.front, make_float3(0.0f, -1.0f, 0.0f)) * cameraEvent.movespeed();
+                break;
+            case CameraEvent::RIGHT:
+                cameraConfig.lookFrom += cross(cameraConfig.front, make_float3(0.0f, 1.0f, 0.0f)) * cameraEvent.movespeed();
+                break;
+            case CameraEvent::UP:
+                cameraConfig.lookFrom += cross(cameraConfig.front, make_float3(-1.0f, 0.0f, 0.0f)) * cameraEvent.movespeed();
+                break;
+            case CameraEvent::DOWN:
+                cameraConfig.lookFrom += cross(cameraConfig.front, make_float3(1.0f, 0.0f, 0.0f)) * cameraEvent.movespeed();
+                break;
+            case CameraEvent::FOV_DECREASE:
+                cameraConfig.vfov += 1.0f;
+                cameraConfig.hfov += 1.0f;
+                break;
+            case CameraEvent::FOV_INCREASE:
+                cameraConfig.vfov -= 1.0f;
+                cameraConfig.hfov -= 1.0f;
+                break;
+            case CameraEvent::PITCH_YAW:
+                cameraConfig.yaw = cameraEvent.rotation().yaw();
+                cameraConfig.pitch = cameraEvent.rotation().pitch();
+                cameraConfig.front = normalize(make_float3(
+                    cos(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch)),
+                    sin(getRadians(cameraConfig.pitch)),
+                    sin(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch))));
+                break;
+            case CameraEvent::SCENE_POSITION:
+                cameraConfig.lookFrom = make_float3(cameraEvent.position().x(), cameraEvent.position().y(), cameraEvent.position().z());
+                break;
+            default:
+                break;
         }
     };
 
-    std::string getEventName() override
+    Event::EventType getEventType() override
     {
-        return "CAMERA_EVENT";
+        return Event::CAMERA_EVENT;
     };
 
 private:

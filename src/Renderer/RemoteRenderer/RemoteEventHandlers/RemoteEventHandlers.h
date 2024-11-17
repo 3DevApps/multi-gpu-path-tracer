@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <vector>
 #include "../RemoteRenderer.h"
@@ -17,13 +17,13 @@ class RemoteEventHandlers {
             addEventHandler<RenderManagerEventHander>(remoteRenderer, remoteRenderer, manager, hScene);
             addEventHandler<CameraEventHandler>(remoteRenderer, cameraConfig);
         };
-        
+
         template <typename T, typename... Args>
         void addEventHandler(RemoteRenderer &remoteRenderer, Args&&... args) {
             static_assert(std::is_base_of<EventHandler, T>::value, "T must inherit from EventHandler");
             auto handler = std::make_shared<T>(std::forward<Args>(args)...);
-            remoteRenderer.addMessageListener(handler->getEventName(), [handler](const std::string& message) {
-                handler->handleEvent(message);
+            remoteRenderer.addMessageListener(handler->getEventType(), [handler](const Event& event) {
+                handler->handleEvent(event);
             });
         }
 };

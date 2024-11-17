@@ -7,44 +7,40 @@
 class MouseMoveEventHandler: EventHandler {
     public:
         MouseMoveEventHandler(CameraConfig& cameraConfig) : cameraConfig(cameraConfig) {
-            yaw = getDegrees(atan2(cameraConfig.front.z, cameraConfig.front.x));
-            pitch = getDegrees(asin(cameraConfig.front.y));
+            cameraConfig.yaw = getDegrees(atan2(cameraConfig.front.z, cameraConfig.front.x));
+            cameraConfig.pitch = getDegrees(asin(cameraConfig.front.y));
         };
 
         void handleMouseMove(double xoffset, double yoffset) {
             xoffset *= sensitivity;
             yoffset *= -sensitivity;
 
-            yaw += xoffset;
-            pitch += yoffset;
+            cameraConfig.yaw += xoffset;
+            cameraConfig.pitch += yoffset;
 
-            if (pitch > 89.0f)
-                pitch = 89.0f;
-            if (pitch < -89.0f)
-                pitch = -89.0f;
+            if (cameraConfig.pitch > 89.0f)
+                cameraConfig.pitch = 89.0f;
+            if (cameraConfig.pitch < -89.0f)
+                cameraConfig.pitch = -89.0f;
 
             cameraConfig.front = normalize(make_float3(
-                cos(getRadians(yaw)) * cos(getRadians(pitch)),
-                sin(getRadians(pitch)), 
-                sin(getRadians(yaw)) * cos(getRadians(pitch))));
+                cos(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch)),
+                sin(getRadians(cameraConfig.pitch)),
+                sin(getRadians(cameraConfig.yaw)) * cos(getRadians(cameraConfig.pitch))));
         };
 
-        void handleEvent(const std::string& message) override {
-            auto sepPos = message.find("#");
-            auto xoffset = std::stod(message.substr(0, sepPos));
-            auto yoffset = std::stod(message.substr(sepPos+1));
-            handleMouseMove(xoffset, yoffset);
+        void handleEvent(const Event& event) override {
+            auto mouseMoveEvent = event.mousemove();
+            handleMouseMove(mouseMoveEvent.xoffset(), mouseMoveEvent.yoffset());
         };
-        
-        std::string getEventName() override {
-            return "MOUSE_MOVE";
+
+        Event::EventType getEventType() override {
+            return Event::MOUSE_MOVE;
         };
 
     private:
         CameraConfig& cameraConfig;
         double sensitivity = 0.75f;
-        float pitch;
-        float yaw;
 
         double getRadians(double value) {
             return M_PI * value / 180.0;
