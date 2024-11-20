@@ -3,6 +3,7 @@
 #include "ray.h"
 #include "helper_math.h"
 #include "Texture.h"
+#include "onb.h"
 
 class hit_record;
 
@@ -54,6 +55,7 @@ public:
         float3& attenuation, 
         float3& emitted_color, 
         ray& scattered, 
+        float& pdf,
         curandState *local_rand_state
     ) const {
         //check if light source
@@ -62,12 +64,8 @@ public:
             return false;
         }
 
-
-        float3 scatter_direction = rec.normal + random_in_unit_sphere(local_rand_state);
-        // Catch degenerate scatter direction
-        if (near_zero(scatter_direction)) {
-            scatter_direction = rec.normal;
-        }
+        onb uvw(rec.normal);
+        float3 scatter_direction = uvw.local(random_cosine_direction(local_rand_state));
         scattered = ray(rec.p, scatter_direction);
 
         attenuation = baseColorFactor_;
@@ -75,16 +73,26 @@ public:
             float3 texColor = baseColorTexture_->value(rec.texCoord, rec.p);
             attenuation = make_float3(attenuation.x * texColor.x, attenuation.y * texColor.y, attenuation.z * texColor.z);
         }
-        
+        pdf = dot(uvw.w(), scattered.direction()) / M_PI;
         return true;
     }
 
     __device__ float3 emitted(const hit_record& rec) const {
         // return make_float3(0.0, 0.0, 0.0);
         if (emissiveTexture_) {
-            return emissiveTexture_->value(rec.texCoord, rec.p) * emissiveFactor_;
+            return emissiveTexture_->value(rec.texCoord, rec.p) * emissiveFactor_ * 15;
         }
-        return emissiveFactor_;
+        return emissiveFactor_* 15;
+    }
+
+    __device__ float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const {
+        float cosine = dot(rec.normal, normalize(scattered.direction()));
+        return cosine < 0 ? 0 : cosine / M_PI;
+    }
+    __device__ void debug_print() {
+        printf("UniversalMaterial: \n");
+        printf("baseColorFactor: %f %f %f\n", baseColorFactor_.x, baseColorFactor_.y, baseColorFactor_.z);
+        printf("emissiveFactor: %f %f %f\n", emissiveFactor_.x, emissiveFactor_.y, emissiveFactor_.z);
     }
 
     float3 baseColorFactor_;
