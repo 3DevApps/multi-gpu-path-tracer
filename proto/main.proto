@@ -50,12 +50,13 @@ message RendererEvent {
         IMAGE_RESOLUTION = 7;
         SHOW_TASK_GRID = 8;
         LOAD_BALANCING_ALGORITHM = 9;
+        K_PARAMETER = 10;
     }
 
     enum LoadBalancingAlgorithm {
-        FST = 0;
-        DTFL = 1;
-        DT = 2;
+        FSFL = 0;
+        DSFL = 1;
+        DSDL = 2;
     }
 
     message Block {
@@ -78,6 +79,7 @@ message Event {
         MOUSE_MOVE = 1;
         CAMERA_EVENT = 2;
         RENDERER_EVENT = 3;
+        SYNCHRONIZE_EVENT = 4;
     }
 
     EventType type = 1;
