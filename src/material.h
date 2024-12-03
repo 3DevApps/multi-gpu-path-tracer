@@ -80,9 +80,9 @@ public:
     __device__ float3 emitted(const hit_record& rec) const {
         // return make_float3(0.0, 0.0, 0.0);
         if (emissiveTexture_) {
-            return emissiveTexture_->value(rec.texCoord, rec.p) * emissiveFactor_ * 15;
+            return emissiveTexture_->value(rec.texCoord, rec.p) * emissiveFactor_ * 50;
         }
-        return emissiveFactor_* 15;
+        return emissiveFactor_ * 50;
     }
 
     __device__ float scattering_pdf(const ray& r_in, const hit_record& rec, const ray& scattered) const {

@@ -34,16 +34,16 @@ public:
         if (!this->hit(ray(o, v), interval(0.001f, FLT_MAX), rec)) {
             return 0;
         }
-        float distance_squared = rec.t * rec.t * dot(v, v) * dot(v, v);
+        float distance_squared = rec.t * rec.t * dot(v, v);
         float cosine = fabs(dot(v, rec.normal) / length(v));
         return distance_squared / (cosine * area);
     }
     __device__ float3 random(const float3& o, curandState *local_rand_state) const {
-        // float3 r1 = make_float3(0,0,0) + curand_uniform(local_rand_state);
-        // float3 r2 =(v1_.position - v0_.position) + curand_uniform(local_rand_state);
-        // float3 r3 = (v2_.position - v0_.position);
-        // float3 random_point = r1 * r2 * r3;
-        // return random_point - o;
+        float r1 = curand_uniform(local_rand_state);
+        float r2 = curand_uniform(local_rand_state);
+        float sqrt_r1 = sqrt(r1);
+        float3 random_point = (1 - sqrt_r1) * v0_.position + (sqrt_r1 * (1 - r2)) * v1_.position + (sqrt_r1 * r2) * v2_.position;
+        return random_point - o;
     }
     __device__ void debug_print()const{
         printf("Triangle: \n");

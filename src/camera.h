@@ -72,12 +72,15 @@ public:
                 }
                 else {
                     cur_attenuation *= color_from_emission;
+                    if(i <=1){
+                        printf("hit light directly %f %f %f\n", cur_attenuation.x, cur_attenuation.y, cur_attenuation.z);
+                    }
                     return cur_attenuation;
                 }
             }
             else {
                 //background
-                return make_float3(1, 1, 1) * cur_attenuation; 
+                return background_color * cur_attenuation; 
             }
         }
         return make_float3(0.0,0.0,0.0); // exceeded recursion
