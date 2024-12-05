@@ -96,6 +96,9 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
     //     color_modifier = make_float3(0.8, 0.4, 1);
     // }
     int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
+    color.x = min(255, color.x);
+    color.y = min(255, color.y);
+    color.z = min(255, color.z);
     // RGB format
     fb_rgb[3 * pixel_index] = color.x;
     fb_rgb[3 * pixel_index + 1] = color.y;
@@ -130,6 +133,14 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
  */
 __global__ void create_world(BVH **d_world, triangle*d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
+        printf("size of triangles %d\n", d_list_size);
+        for(int i =0; i < d_list_size; i++){
+            printf("triangle %d\n", i);
+            printf("v0 %f %f %f\n",d_list[i].v0_.position.x, d_list[i].v0_.position.y, d_list[i].v0_.position.z);
+            printf("v1 %f %f %f\n",d_list[i].v1_.position.x, d_list[i].v1_.position.y, d_list[i].v1_.position.z);
+            printf("v2 %f %f %f\n",d_list[i].v2_.position.x, d_list[i].v2_.position.y, d_list[i].v2_.position.z);
+            
+        }
         *d_world  = new BVH(d_list, d_list_size);
     }
 }
@@ -324,6 +335,8 @@ public:
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
         create_lights<<<1,1>>>(scene_.d_lights, thrust::raw_pointer_cast(&scene_.light_faces[0]), scene_.light_faces.size());
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
     }
 
     void setFramebuffer(std::shared_ptr<Framebuffer> framebuffer) {

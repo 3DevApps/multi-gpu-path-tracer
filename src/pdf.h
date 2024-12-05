@@ -29,7 +29,7 @@ class cosine_pdf : public pdf {
 
 class triangle_pdf : public pdf {
     public:
-    __device__ triangle_pdf(triangle *p, const float3& origin) : ptr(p), o(origin) {}
+    __device__ triangle_pdf(const triangle *p, const float3& origin) : ptr(p), o(origin) {}
     __device__ virtual float value(const float3& direction) const override {
         return ptr->pdf_value(o, direction);
     }
@@ -38,11 +38,11 @@ class triangle_pdf : public pdf {
     }
 
     float3 o;
-    triangle *ptr;
+    const triangle *ptr;
 };
 class hitable_list_pdf:public pdf{
     public:
-    __device__ hitable_list_pdf(hitable_list *l, const float3& o) : list(l), origin(o) {}
+    __device__ hitable_list_pdf(const hitable_list *l, const float3& o) : list(l), origin(o) {}
     __device__ virtual float value(const float3& direction) const override {
         return list->pdf_value(origin, direction);
     }
@@ -50,13 +50,13 @@ class hitable_list_pdf:public pdf{
         return list->random(origin, local_rand_state);
     }
 
-    hitable_list *list;
+    const hitable_list *list;
     float3 origin;
 
 };
 class mixture_pdf : public pdf {
     public:
-    __device__ mixture_pdf(pdf *p0, pdf *p1) { 
+    __device__ mixture_pdf(const pdf *p0, const pdf *p1) { 
         p[0] = p0; 
         p[1] = p1;
     }
@@ -71,5 +71,5 @@ class mixture_pdf : public pdf {
         }
     }
 
-    pdf *p[2];
+    const pdf *p[2];
 };

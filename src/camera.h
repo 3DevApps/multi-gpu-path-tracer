@@ -66,15 +66,11 @@ public:
                     pdf_value = mixed_pdf.value(scattered.direction());
                     float scattering_pdf = rec.mat_ptr->scattering_pdf(cur_ray, rec, scattered);
 
-
                     cur_attenuation *= attenuation * scattering_pdf / pdf_value;
                     cur_ray = scattered;
                 }
                 else {
                     cur_attenuation *= color_from_emission;
-                    if(i <=1){
-                        printf("hit light directly %f %f %f\n", cur_attenuation.x, cur_attenuation.y, cur_attenuation.z);
-                    }
                     return cur_attenuation;
                 }
             }
@@ -110,7 +106,7 @@ private:
     float focal_length; //distance between the camera and the viewport
     float verticalFieldOfView_ = 45.0; //vertical field of view
     float horizontalFieldOfView_ = 45.0;
-    float3 background_color = make_float3(0.0, 0.0, 0.0);
+    const float3 background_color = make_float3(0.0, 0.0, 0.0);
     float3 lookAt = make_float3(1.0, 0, 0);
     float3 vup = make_float3(0.0, 1.0, 0.0);
     float3 u, v, w; //orthonormal basis for the camera
