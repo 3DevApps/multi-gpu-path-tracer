@@ -7,7 +7,8 @@
 #include "bvh.h"
 #include "HostScene.h"
 #include "CameraConfig.h"
-
+#include "pdf.h"
+#include "onb.h"
 /**
 * @brief Represents a camera in a 3D scene.
 *
@@ -45,7 +46,7 @@ public:
      * @param local_rand_state The pointer to the random number generator state for the current thread.
      * @return The color of the ray.
      */
-    __device__ float3 ray_color(const ray& r, BVH **world, CameraConfig& cameraConfig, unsigned int recursionDepth, curandState* local_rand_state) {
+    __device__ float3 ray_color(const ray& r, BVH **world, CameraConfig& cameraConfig, unsigned int recursionDepth,hitable_list** lights, curandState* local_rand_state) {
         recalculate_camera_params(cameraConfig);
         ray cur_ray = r;
         float3 cur_attenuation = make_float3(1.0, 1.0, 1.0);
@@ -55,8 +56,17 @@ public:
                 ray scattered;
                 float3 attenuation; //means color
                 float3 color_from_emission;
-                if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, color_from_emission, scattered, local_rand_state)) {
-                    cur_attenuation *= attenuation;
+                float pdf_value;
+
+                if (rec.mat_ptr->scatter(cur_ray, rec, attenuation, color_from_emission, scattered,pdf_value, local_rand_state)) {
+                    hitable_list_pdf light_pdf = hitable_list_pdf(*lights, rec.p);
+                    cosine_pdf surface_pdf = cosine_pdf(rec.normal);
+                    mixture_pdf mixed_pdf = mixture_pdf(&light_pdf, &surface_pdf);
+                    scattered = ray(rec.p, mixed_pdf.generate(local_rand_state));
+                    pdf_value = mixed_pdf.value(scattered.direction());
+                    float scattering_pdf = rec.mat_ptr->scattering_pdf(cur_ray, rec, scattered);
+
+                    cur_attenuation *= attenuation * scattering_pdf / pdf_value;
                     cur_ray = scattered;
                 }
                 else {
@@ -66,7 +76,7 @@ public:
             }
             else {
                 //background
-                return make_float3(1, 1, 1) * cur_attenuation; 
+                return background_color * cur_attenuation; 
             }
         }
         return make_float3(0.0,0.0,0.0); // exceeded recursion
@@ -96,7 +106,7 @@ private:
     float focal_length; //distance between the camera and the viewport
     float verticalFieldOfView_ = 45.0; //vertical field of view
     float horizontalFieldOfView_ = 45.0;
-    float3 background_color = make_float3(0.0, 0.0, 0.0);
+    const float3 background_color = make_float3(0.0, 0.0, 0.0);
     float3 lookAt = make_float3(1.0, 0, 0);
     float3 vup = make_float3(0.0, 1.0, 0.0);
     float3 u, v, w; //orthonormal basis for the camera

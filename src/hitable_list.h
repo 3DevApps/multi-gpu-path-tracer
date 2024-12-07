@@ -6,19 +6,25 @@
 #include "interval.h"
 #include "triangle.h"
 
-class hitable_list: public hitable {
+class hitable_list {
     public:
         __device__ hitable_list() {}
-        __device__ hitable_list(triangle *l, int n) {
-            list = l;
-            list_size = n; 
-            // for (int i = 0; i < n; i++)
-            // {
-            //     bbox = aabb(bbox, l[i]->bbox);
-            // }
+        __device__ hitable_list(triangle **l, int n) {list = l; list_size = n;}
+
+        __device__ bool hit(const ray& r, interval ray_t, hit_record& rec) const;
+
+        __device__ float pdf_value(const float3& o, const float3& v) const {
+            float weight = 1.0f/list_size;
+            float sum = 0.0f;
+            for (int i = 0; i < list_size; i++)
+                sum += weight * list[i]->pdf_value(o, v);
+            return sum;
         }
-        __device__ virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const;
-        triangle *list;
+        __device__ float3 random(const float3& o, curandState *local_rand_state) const {
+            int index = int(truncf(curand_uniform(local_rand_state)*((list_size - 1) + 0.999999)));
+            return list[index]->random(o, local_rand_state);
+        }
+        triangle **list;
         int list_size;
 };
 
@@ -36,7 +42,7 @@ __device__ bool hitable_list::hit(const ray& r, interval ray_t, hit_record& rec)
     bool hit_anything = false; 
     for (int i = 0; i < list_size; i++)
     {
-        if (list[i].hit(r, ray_t, temp_rec))
+        if (list[i]->hit(r, ray_t, temp_rec))
         {
             hit_anything = true;
             ray_t.max = temp_rec.t;

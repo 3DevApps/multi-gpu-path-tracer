@@ -27,9 +27,11 @@ struct RenderTask {
 struct Scene {
     BVH **d_world = nullptr;
     camera **d_camera = nullptr;
-    thrust::device_vector<BaseColorTexture> textures{};
+    hitable_list **d_lights = nullptr;
+    thrust::device_vector<BaseColorTexture> textures{}; 
     thrust::device_vector<UniversalMaterial> materials{};
-    thrust::device_vector<triangle> faces{};
+    thrust::device_vector<triangle> faces{}; 
+    thrust::device_vector<triangle*> light_faces{};
 };
 
 /**
@@ -68,7 +70,7 @@ __global__ void render_init(int nx, int ny, curandState *rand_state) {
  * @param world An array of hitable pointers representing the scene.
  * @param rand_state The random state for each thread.
  */
-__global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, BVH **world, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
+__global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolution res, int sample_per_pixel, camera **cam, BVH **world,hitable_list **lights, CameraConfig cameraConfig, unsigned int recursionDepth, curandState *rand_state) {
     int i = threadIdx.x + blockIdx.x * blockDim.x;
     int j = threadIdx.y + blockIdx.y * blockDim.y;
     if((i >= task.width) || (j >= task.height)) return;
@@ -82,7 +84,7 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
         float u = float(x + curand_uniform(&local_rand_state)) / float(res.width);
         float v = float(y + curand_uniform(&local_rand_state)) / float(res.height);
         ray r = (*cam)->get_ray(u, v);
-        col += (*cam)->ray_color(r, world, cameraConfig, recursionDepth, &local_rand_state);
+        col += (*cam)->ray_color(r, world, cameraConfig, recursionDepth,lights, &local_rand_state);
     }
 
     float3 color_modifier = make_float3(1, 1, 1);
@@ -94,6 +96,9 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
     //     color_modifier = make_float3(0.8, 0.4, 1);
     // }
     int3 color = make_int3(255.99 * col/float(sample_per_pixel) * color_modifier); //average color of samples
+    color.x = min(255, color.x);
+    color.y = min(255, color.y);
+    color.z = min(255, color.z);
     // RGB format
     fb_rgb[3 * pixel_index] = color.x;
     fb_rgb[3 * pixel_index + 1] = color.y;
@@ -128,7 +133,21 @@ __global__ void render(uint8_t *fb_rgb, uint8_t *fb_yuv, RenderTask task, Resolu
  */
 __global__ void create_world(BVH **d_world, triangle*d_list, int d_list_size) {
     if (threadIdx.x == 0 && blockIdx.x == 0) {
+        printf("size of triangles %d\n", d_list_size);
+        for(int i =0; i < d_list_size; i++){
+            printf("triangle %d\n", i);
+            printf("v0 %f %f %f\n",d_list[i].v0_.position.x, d_list[i].v0_.position.y, d_list[i].v0_.position.z);
+            printf("v1 %f %f %f\n",d_list[i].v1_.position.x, d_list[i].v1_.position.y, d_list[i].v1_.position.z);
+            printf("v2 %f %f %f\n",d_list[i].v2_.position.x, d_list[i].v2_.position.y, d_list[i].v2_.position.z);
+            
+        }
         *d_world  = new BVH(d_list, d_list_size);
+    }
+}
+
+__global__ void create_lights(hitable_list **d_lights, triangle** light_faces, int light_faces_size) {
+    if (threadIdx.x == 0 && blockIdx.x == 0) {                                  
+        *d_lights  = new hitable_list(light_faces, light_faces_size);      
     }
 }
 
@@ -187,6 +206,7 @@ public:
             samplesPerPixel_,
             scene_.d_camera,
             scene_.d_world,
+            scene_.d_lights,
             cameraConfig_,
             recursionDepth_,
             d_rand_state_
@@ -280,6 +300,11 @@ public:
                 thrust::raw_pointer_cast(&scene_.materials[hTriangle.materialIdx])
             );
             scene_.faces.push_back(t);
+            //lights handling
+            float3 emitted_color = hostScene_.materials[hTriangle.materialIdx].emissiveFactor;
+            if (emitted_color.x > 0.0001 || emitted_color.y > 0.0001 || emitted_color.z > 0.0001) {
+                scene_.light_faces.push_back(thrust::raw_pointer_cast(&scene_.faces.back()));
+            }
         }
     }
 
@@ -298,12 +323,18 @@ public:
         }
 
         checkCudaErrors(cudaMalloc((void **)&scene_.d_world, sizeof(BVH *)));
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+        checkCudaErrors(cudaMalloc((void **)&scene_.d_lights, sizeof(hitable_list *)));
 
         loadTextures();
         loadMaterials();
         loadTrianglesWithTextures();
 
         create_world<<<1,1>>>(scene_.d_world, thrust::raw_pointer_cast(&scene_.faces[0]), scene_.faces.size());
+        checkCudaErrors(cudaGetLastError());
+        checkCudaErrors(cudaDeviceSynchronize());
+        create_lights<<<1,1>>>(scene_.d_lights, thrust::raw_pointer_cast(&scene_.light_faces[0]), scene_.light_faces.size());
         checkCudaErrors(cudaGetLastError());
         checkCudaErrors(cudaDeviceSynchronize());
     }
