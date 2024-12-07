@@ -351,28 +351,36 @@ public:
     {
         for (int i = 0; i < renderTasks_.size(); i++)
         {
-            for (int x = 0; x < renderTasks_[i].width; x++)
-            {
-                int pixel_index = renderTasks_[i].offset_y * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
-                framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+            if (renderTasks_[i].offset_y != 0) {
+                for (int x = 0; x < renderTasks_[i].width; x++)
+                {
+                    int pixel_index = renderTasks_[i].offset_y * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
+                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+                }
             }
 
-            for (int x = 0; x < renderTasks_[i].width; x++)
-            {
-                int pixel_index = (renderTasks_[i].offset_y + renderTasks_[i].height) * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
-                framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+            if (renderTasks_[i].offset_y + renderTasks_[i].height != config_.resolution.height) {
+                for (int x = 0; x < renderTasks_[i].width; x++)
+                {
+                    int pixel_index = (renderTasks_[i].offset_y + renderTasks_[i].height) * framebuffer_->getResolution().width; + renderTasks_[i].offset_x + x;
+                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+                }
             }
 
-            for (int y = 0; y < renderTasks_[i].height; y++)
-            {
-                int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x;
-                framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+            if (renderTasks_[i].offset_x != 0) {
+                for (int y = 0; y < renderTasks_[i].height; y++)
+                {
+                    int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x;
+                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+                }
             }
 
-            for (int y = 0; y < renderTasks_[i].height; y++)
-            {
-                int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x + renderTasks_[i].width;
-                framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+            if (renderTasks_[i].offset_x + renderTasks_[i].width != config_.resolution.width){
+                for (int y = 0; y < renderTasks_[i].height; y++)
+                {
+                    int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x + renderTasks_[i].width;
+                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+                }
             }
         }
     }
