@@ -8,8 +8,8 @@ class Framebuffer
 public:
     Framebuffer(Resolution res)
     {
+        initializePointers(res);
         resolution_ = res;
-        initializePointers();
     }
 
     void setResolution(Resolution res)
@@ -18,16 +18,16 @@ public:
         {
             return;
         }
-        resolution_ = res;
         checkCudaErrors(cudaFree(fb_rgb_ptr_));
         checkCudaErrors(cudaFree(fb_yuv_ptr_));
-        initializePointers();
+        initializePointers(res);
+        resolution_ = res;
     }
 
-    void initializePointers()
+    void initializePointers(Resolution res)
     {
         // RGB format
-        const int totalPixels = resolution_.width * resolution_.height;
+        const int totalPixels = res.width * res.height;
         checkCudaErrors(cudaMallocManaged((void **)&fb_rgb_ptr_, totalPixels * 3 * sizeof(uint8_t)));
         // YUV 4:2:0 format
         const int uvSize = totalPixels / 4;

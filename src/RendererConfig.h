@@ -3,26 +3,29 @@
 #include <curand_kernel.h>
 #include "helper_math.h"
 
-struct Resolution {
+struct Resolution
+{
     unsigned int width;
     unsigned int height;
 };
 
-enum SchedulingAlgorithmType {
-    FST, // Fixed size tasks
-    DTFL, // Dynamic tasks with fixed layout
-    DT  // Dynamic layout tasks
+enum SchedulingAlgorithmType
+{
+    FSFL, // Fixed size tasks
+    DSFL, // Dynamic tasks with fixed layout
+    DSDL  // Dynamic layout tasks
 };
 
-struct RendererConfig {
+struct RendererConfig
+{
     std::string jobId = "0";
     unsigned int samplesPerPixel = 10;
     unsigned int recursionDepth = 3;
     std::string modelPath{};
-    unsigned int gpuNumber = 2;
+    unsigned int gpuNumber = 1;
     unsigned int streamsPerGpu = 1;
     Resolution resolution{400, 400};
-    SchedulingAlgorithmType algorithmType = FST; // TODO: add support for different algorithms
+    SchedulingAlgorithmType algorithmType = FSFL; // TODO: add support for different algorithms
     dim3 threadBlockSize{8, 8};
     float vfov = 45.0f;
     float hfov = 45.0f;
@@ -30,4 +33,5 @@ struct RendererConfig {
     float3 cameraFrontVec{1.0f, 0.0f, 0.0f};
     unsigned int maxTasksInRow = 2; //
     bool showTasks = true;
+    int kParam = 1;
 };

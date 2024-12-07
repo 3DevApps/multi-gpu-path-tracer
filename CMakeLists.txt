@@ -36,6 +36,7 @@ set(
         CUDA_NVCC_FLAGS
         ${CUDA_NVCC_FLAGS};
                 -gencode arch=compute_70,code=sm_70
+                -gencode arch=compute_86,code=sm_86
                 -rdc=true
                 -lineinfo
 )
