@@ -347,38 +347,60 @@ public:
         }
     }
 
-    void markTasks()
-    {
-        for (int i = 0; i < renderTasks_.size(); i++)
-        {
+    void markTasks() {
+        int boldness = framebuffer_->getResolution().height / 300;
+        for (int i = 0; i < renderTasks_.size(); i++) {
             if (renderTasks_[i].offset_y != 0) {
-                for (int x = 0; x < renderTasks_[i].width; x++)
-                {
-                    int pixel_index = renderTasks_[i].offset_y * framebuffer_->getResolution().width + renderTasks_[i].offset_x + x;
-                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
-                }
+                markTaskBorder(
+                    renderTasks_[i].offset_x, 
+                    renderTasks_[i].offset_x + renderTasks_[i].width, 
+                    renderTasks_[i].offset_y, 
+                    boldness, 
+                    true
+                );
             }
 
-            if (renderTasks_[i].offset_y + renderTasks_[i].height != config_.resolution.height) {
-                for (int x = 0; x < renderTasks_[i].width; x++)
-                {
-                    int pixel_index = (renderTasks_[i].offset_y + renderTasks_[i].height) * framebuffer_->getResolution().width; + renderTasks_[i].offset_x + x;
-                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
-                }
-            }
+            markTaskBorder(
+                renderTasks_[i].offset_x, 
+                renderTasks_[i].offset_x + renderTasks_[i].width, 
+                renderTasks_[i].offset_y + renderTasks_[i].height, 
+                boldness, 
+                true
+            );
 
             if (renderTasks_[i].offset_x != 0) {
-                for (int y = 0; y < renderTasks_[i].height; y++)
-                {
-                    int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x;
+                markTaskBorder(
+                    renderTasks_[i].offset_y, 
+                    renderTasks_[i].offset_y + renderTasks_[i].height, 
+                    renderTasks_[i].offset_x, 
+                    boldness, 
+                    false
+                );
+            }
+
+            markTaskBorder(
+                renderTasks_[i].offset_y, 
+                renderTasks_[i].offset_y + renderTasks_[i].height, 
+                renderTasks_[i].offset_x + renderTasks_[i].width, 
+                boldness, 
+                false
+            );
+        }
+    }
+
+    void markTaskBorder(int begin, int end, int offset, int boldness, bool isVert) {
+        if (isVert) {
+            for (int x = begin; x < end; x++) {
+                for (int yi = offset; yi <= offset + boldness && yi < framebuffer_->getResolution().height; yi++) {
+                    int pixel_index = yi * framebuffer_->getResolution().width + x;
                     framebuffer_->updatePixel(pixel_index, 0, 0, 0);
                 }
             }
-
-            if (renderTasks_[i].offset_x + renderTasks_[i].width != config_.resolution.width){
-                for (int y = 0; y < renderTasks_[i].height; y++)
-                {
-                    int pixel_index = (renderTasks_[i].offset_y + y) * framebuffer_->getResolution().width + renderTasks_[i].offset_x + renderTasks_[i].width;
+        }
+        else {
+            for (int y = begin; y < end; y++) {
+                for (int xi = offset; xi <= offset + boldness && xi < framebuffer_->getResolution().width; xi++) {
+                    int pixel_index = y * framebuffer_->getResolution().width + xi;
                     framebuffer_->updatePixel(pixel_index, 0, 0, 0);
                 }
             }
