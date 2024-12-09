@@ -25,13 +25,13 @@ struct RendererConfig
     unsigned int gpuNumber = 1;
     unsigned int streamsPerGpu = 1;
     Resolution resolution{400, 400};
-    SchedulingAlgorithmType algorithmType = FSFL; // TODO: add support for different algorithms
+    SchedulingAlgorithmType algorithmType = FSFL;
     dim3 threadBlockSize{8, 8};
     float vfov = 45.0f;
     float hfov = 45.0f;
     float3 cameraLookFromVec{0.0f, 0.0f, 0.0f};
     float3 cameraFrontVec{1.0f, 0.0f, 0.0f};
-    unsigned int maxTasksInRow = 2; //
+    unsigned int maxTasksInRow = 2; 
     bool showTasks = true;
     int kParam = 1;
 };

@@ -22,6 +22,7 @@
 #include "Framebuffer.h"
 #include "barrier.h"
 #include <algorithm>
+#include <cmath>
 
 class RenderManager
 {
@@ -32,7 +33,8 @@ public:
                                                                                                                      barrier_{config.gpuNumber * config.streamsPerGpu + 1},
                                                                                                                      sceneLoader_{sceneLoader}
     {
-
+        // hardcoded size of vector with block times to avoid mallocs
+        blockTimes.resize(500, std::vector<float>(500));
         newConfig_ = config_;
         setup();
     }
@@ -106,6 +108,11 @@ public:
             taskLayout_,
             config_.resolution.width,
             config_.resolution.height);
+
+        int blockVert = framebuffer_->getResolution().width / config_.threadBlockSize.x;
+        int blockHoriz = framebuffer_->getResolution().height / config_.threadBlockSize.y;
+        blockTimes.resize(blockVert, std::vector<float>(blockHoriz));
+        depth = log2(threadCount_);
     }
 
     void setKParameter(int val)
@@ -149,6 +156,12 @@ public:
                 dpt->setFramebuffer(framebuffer_);
             }
             renderTasks_ = taskGen_.generateEqualTasks(config_.gpuNumber * config_.streamsPerGpu, config_.resolution.width, config_.resolution.height);
+            int blockVert = framebuffer_->getResolution().width / config_.threadBlockSize.x;
+            int blockHoriz = framebuffer_->getResolution().height / config_.threadBlockSize.y;
+            for (int i = 0; i < blockVert; i++) {
+                std::fill(blockTimes[i].begin(), blockTimes[i].end(), 0);
+            }
+            depth = log2(threadCount_);
         }
 
         if (config_.samplesPerPixel != newConfig_.samplesPerPixel)
@@ -181,6 +194,15 @@ public:
 
     void setGpuNumber(int gpuNumber)
     {
+        // for DSDF only powers of 2 work
+        if (config_.algorithmType == SchedulingAlgorithmType::DSDL) {
+            int newGpuNumber = 1;
+            while (newGpuNumber * 2 <= gpuNumber) {
+                newGpuNumber *= 2;
+            }
+            gpuNumber = newGpuNumber;
+        }
+
         newConfig_.gpuNumber = gpuNumber;
         shouldUpdatePathTracerParams = true;
     }
@@ -193,7 +215,7 @@ public:
 
     void setGpuAndStreamNumber(int gpuNumber, int streamsPerGpu)
     {
-        newConfig_.gpuNumber = gpuNumber;
+        setGpuNumber(gpuNumber);
         newConfig_.streamsPerGpu = streamsPerGpu;
         shouldUpdatePathTracerParams = true;
     }
@@ -246,6 +268,75 @@ public:
         {
             dpt->reloadWorld();
         }
+    }
+
+    void subdivide(int offset_x, int offset_y, int width, int height, int current, bool vert) {
+        if (current == depth) {
+            RenderTask rt = {
+                config_.threadBlockSize.x * width,
+                config_.threadBlockSize.y * height,
+                config_.threadBlockSize.x * offset_x, 
+                config_.threadBlockSize.y * offset_y,
+            };
+            renderTasks_.push_back(rt);
+            return;
+        }
+
+        float sum = 0;
+        for (int xi = offset_x; xi < offset_x + width; xi++) {
+            for (int yi = offset_y; yi < offset_y + height; yi++) {
+                sum += blockTimes[yi][xi];
+            }
+        }
+
+        float target = sum / 2;
+        sum = 0;
+
+        if (vert) {
+            for (int yi = offset_y; yi < offset_y + height; yi++) {
+                for (int xi = offset_x; xi < offset_x + width; xi++) {
+                    sum += blockTimes[yi][xi];
+                }
+                if (target <= sum) {
+                    subdivide(offset_x, offset_y, width, yi - offset_y, current + 1, false);
+                    subdivide(offset_x, yi, width, height - yi, current + 1, false);
+                    break;
+                }
+            }
+        }
+        else {
+            for (int xi = offset_x; xi < offset_x + width; xi++) {
+                for (int yi = offset_y; yi < offset_y + height; yi++) {
+                    sum += blockTimes[yi][xi];
+                }
+                if (target <= sum) {
+                    subdivide(offset_x, offset_y, xi - offset_x, height, current + 1, true);
+                    subdivide(xi, offset_y, width - xi, height, current + 1, true);
+                    break;
+                }
+            }
+        }
+    }
+
+    void adjustTasksDSDL() {
+        for (int i = 0; i < renderTasks_.size(); i++) {
+            int blockOffsetHoriz = renderTasks_[i].offset_x / config_.threadBlockSize.x;
+            int blockCountHoriz = renderTasks_[i].width / config_.threadBlockSize.x;
+            int blockOffsetVert = renderTasks_[i].offset_y / config_.threadBlockSize.y;
+            int blockCountVert = renderTasks_[i].height / config_.threadBlockSize.y;
+
+            for (int xi = 0; xi < blockCountHoriz; xi++) {
+                for (int yi = 0; yi < blockCountVert; yi++) {
+                    blockTimes[blockOffsetVert + yi][blockOffsetVert + xi] = renderTasks_[i].time / (float)blockCountVert * blockCountHoriz;
+                }
+            }
+        }
+        renderTasks_ = {};
+
+        int bv = framebuffer_->getResolution().width / config_.threadBlockSize.x;
+        int bh = framebuffer_->getResolution().height / config_.threadBlockSize.y;
+
+        subdivide(0, 0, bh, bv, 0, true);
     }
 
     // adjust tasks for dynamic task size and fixed layout variant
@@ -325,14 +416,15 @@ public:
         }
     }
 
-    void renderFrame()
-    {
+    void renderFrame() {
         updatePathTracingParamsIfNeeded();
         reloadWorldIfNeeded();
 
-        if (config_.algorithmType == SchedulingAlgorithmType::DSFL)
-        {
+        if (config_.algorithmType == SchedulingAlgorithmType::DSFL) {
             adjustTasksDSFL();
+        }
+        else if (config_.algorithmType == SchedulingAlgorithmType::DSDL) {
+            adjustTasksDSDL();
         }
 
         barrier_.wait(); // wait for render threads
@@ -555,4 +647,6 @@ private:
     std::vector<std::vector<int>> taskLayout_;
     int threadCount_;
     SceneLoader &sceneLoader_;
+    std::vector<std::vector<float>> blockTimes;
+    int depth;
 };
