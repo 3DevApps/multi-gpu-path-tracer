@@ -1,5 +1,6 @@
 #pragma once
 
+#include <curand_kernel.h>
 #include "assimp/Importer.hpp"
 #include "assimp/postprocess.h"
 #include "assimp/scene.h"
@@ -24,11 +25,36 @@ public:
         interval z_interval = interval(min(v0.position.z,min(v1.position.z,v2.position.z)),max(v0.position.x,max(v1.position.z,v2.position.z)));
         bbox = aabb(x_interval, y_interval, z_interval);
         centroid = (v0_.position + v1_.position + v2_.position) * 0.3333f;
+        area = length(cross(v1_.position - v0_.position, v2_.position - v0_.position)) * 0.5f;
     }
 
     __device__ bool hit(const ray& r, interval ray_t, hit_record& rec) const;
+    __device__ float pdf_value(const float3& o, const float3& v) const {
+        hit_record rec;
+        if (!this->hit(ray(o, v), interval(0.001f, FLT_MAX), rec)) {
+            return 0;
+        }
+        float distance_squared = rec.t * rec.t * dot(v, v);
+        float cosine = fabs(dot(v, rec.normal) / length(v));
+        return distance_squared / (cosine * area);
+    }
+    __device__ float3 random(const float3& o, curandState *local_rand_state) const {
+        float r1 = curand_uniform(local_rand_state);
+        float r2 = curand_uniform(local_rand_state);
+        float sqrt_r1 = sqrt(r1);
+        float3 random_point = (1 - sqrt_r1) * v0_.position + (sqrt_r1 * (1 - r2)) * v1_.position + (sqrt_r1 * r2) * v2_.position;
+        return random_point - o;
+    }
+    __device__ void debug_print()const{
+        printf("Triangle: \n");
+        printf("v0: %f %f %f\n", v0_.position.x, v0_.position.y, v0_.position.z);
+        printf("v1: %f %f %f\n", v1_.position.x, v1_.position.y, v1_.position.z);
+        printf("v2: %f %f %f\n", v2_.position.x, v2_.position.y, v2_.position.z);
+        mat_ptr_->debug_print();
+    }
 
     Vertex v0_, v1_, v2_;
+    float area;
     UniversalMaterial *mat_ptr_;
     aabb bbox;
     float3 centroid;

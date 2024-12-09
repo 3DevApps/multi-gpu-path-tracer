@@ -10,7 +10,7 @@ class SolidColorTexture : public Texture {
   public:
     __device__ SolidColorTexture(const float3& albedo) : albedo{albedo} {}
 
-    __device__ SolidColorTexture(double red, double green, double blue) : SolidColorTexture(make_float3(red,green,blue)) {}
+    __device__ SolidColorTexture(float red, float green, float blue) : SolidColorTexture(make_float3(red,green,blue)) {}
 
     __device__ float3 value(float2 texCoords, const float3& p) const override {
         return albedo;

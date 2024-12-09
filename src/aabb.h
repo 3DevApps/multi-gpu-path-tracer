@@ -89,7 +89,7 @@ public:
  
     __device__ __host__ void pad_to_minimums() {
         // Adjust the AABB so that no side is narrower than some delta, padding if necessary.
-        double delta = 0.00001;
+        float delta = 0.00001;
         if (x.size() < delta) x = x.expand(delta);
         if (y.size() < delta) y = y.expand(delta);
         if (z.size() < delta) z = z.expand(delta);

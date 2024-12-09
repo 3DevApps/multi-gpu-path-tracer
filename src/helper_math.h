@@ -1516,6 +1516,15 @@ inline __device__ float3 random_in_unit_sphere(curandState *local_rand_state) {
     } while (dot(p, p) >= 1.0f);
     return p;
 }
+inline __device__ float3 random_cosine_direction(curandState *local_rand_state) {
+    float r1 = curand_uniform(local_rand_state);
+    float r2 = curand_uniform(local_rand_state);
+    float z = sqrt(1-r2);
+    float phi = 2*M_PI*r1;
+    float x = cos(phi)*2*sqrt(r2);
+    float y = sin(phi)*2*sqrt(r2);
+    return make_float3(x,y,z);
+}
 ////////////////////////////////////////////////////////////////////////////////
 // near zero
 ////////////////////////////////////////////////////////////////////////////////
