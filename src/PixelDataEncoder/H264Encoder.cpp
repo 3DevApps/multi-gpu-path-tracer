@@ -7,22 +7,22 @@ H264Encoder::~H264Encoder()
 
 void H264Encoder::initEncoder(const int width, const int height)
 {
-    int fps = 60;
+    int fps = 30;
 
     x264_param_t param;
-    x264_param_default_preset(&param, "ultrafast", "zerolatency,ssim");
+    x264_param_default_preset(&param, "ultrafast", "zerolatency");
 
     param.i_width = width;
     param.i_height = height;
-    param.i_level_idc = 52;
     param.i_fps_num = fps;
     param.i_fps_den = 1;
     param.i_csp = X264_CSP_I420;
+    param.i_threads = 1;
     param.i_keyint_max = fps;
     param.b_repeat_headers = 1; // Force SPS/PPS on keyframes
     param.b_annexb = 1;         // Use Annex B format with start codes
 
-    x264_param_apply_profile(&param, "high");
+    x264_param_apply_profile(&param, "baseline");
 
     encoder = x264_encoder_open(&param);
     if (!encoder)
