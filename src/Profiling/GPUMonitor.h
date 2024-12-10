@@ -40,6 +40,10 @@ public:
     ~GPUMonitor();
     std::string getLatestStats();
     void updateFps();
+    void updateTimeOfRendering(int gpuIdx, float ms);
+    float avgTimeOfRendering(int gpuIdx);
+    void updateImbalance(float im);
+    float avgImbalance();
 
 private:
     unsigned int device_count_;
@@ -51,6 +55,8 @@ private:
     int fps_ = 0;
     int current_fps_ = 0;
     std::chrono::time_point<std::chrono::high_resolution_clock> last_fps_update_;
+    std::vector<std::vector<float>> timesOfRendering{8};
+    std::vector<float> loadImbalances{};
 };
 
 class MonitorThread {
@@ -59,6 +65,8 @@ public:
     void operator()();
     void safeTerminate();
     void updateFps();
+    void updateTimeOfRendering(int gpuIdx, float ms);
+    void updateImbalance(float im);
 
 private:
     std::atomic_bool shouldTerminate = false;

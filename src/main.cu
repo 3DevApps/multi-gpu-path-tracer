@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
         std::cout << "Path Tracing took: " << duration.count() << "ms" << std::endl;
         renderer.renderFrame();
+        manager.updateMetrics(monitor_thread_obj);
         monitor_thread_obj.updateFps();
 	}
 
