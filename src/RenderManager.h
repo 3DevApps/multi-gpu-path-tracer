@@ -34,7 +34,7 @@ public:
                                                                                                                      sceneLoader_{sceneLoader}
     {
         // hardcoded size of vector with block times to avoid mallocs
-        blockTimes.resize(500, std::vector<float>(500));
+        blockTimes.resize(500, std::vector<float>(500, 0));
         newConfig_ = config_;
         setup();
     }
@@ -108,10 +108,6 @@ public:
             taskLayout_,
             config_.resolution.width,
             config_.resolution.height);
-
-        int blockVert = framebuffer_->getResolution().width / config_.threadBlockSize.x;
-        int blockHoriz = framebuffer_->getResolution().height / config_.threadBlockSize.y;
-        blockTimes.resize(blockVert, std::vector<float>(blockHoriz));
         depth = log2(threadCount_);
     }
 
@@ -156,11 +152,6 @@ public:
                 dpt->setFramebuffer(framebuffer_);
             }
             renderTasks_ = taskGen_.generateEqualTasks(config_.gpuNumber * config_.streamsPerGpu, config_.resolution.width, config_.resolution.height);
-            int blockVert = framebuffer_->getResolution().width / config_.threadBlockSize.x;
-            int blockHoriz = framebuffer_->getResolution().height / config_.threadBlockSize.y;
-            for (int i = 0; i < blockVert; i++) {
-                std::fill(blockTimes[i].begin(), blockTimes[i].end(), 0);
-            }
             depth = log2(threadCount_);
         }
 
