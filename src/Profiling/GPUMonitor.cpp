@@ -40,13 +40,15 @@ void GPUMonitor::queryStats() {
 
 void GPUMonitor::logLatestStats() {
     for (int i = 0; i < device_count_; i++) {
-        printf("ID: %d | Name: %s | Mem Total: %ld MB | Mem Free: %ld MB | GPU Util: %d% | Mem Util: %d%\n",
+        printf("ID: %d | Name: %s | Mem Total: %ld MB | Mem Free: %ld MB | GPU Util: %d | Mem Util: %d | TOR: %f | Imbalance: %f\n",
             i,
             device_infos_[i].name,
             device_infos_[i].memory_info.total / 1000000,
             device_infos_[i].memory_info.free / 1000000,
             device_infos_[i].utilization.gpu,
-            device_infos_[i].utilization.memory);
+            device_infos_[i].utilization.memory,
+            avgTimeOfRendering(i),
+            avgImbalance());
             double free_db = (double)free_byte;
             double total_db = (double)total_byte;
             double used_db = total_db - free_db;
@@ -58,6 +60,33 @@ void GPUMonitor::logLatestStats() {
 
 void GPUMonitor::updateFps() {
     frame_count_++;
+}
+
+void GPUMonitor::updateTimeOfRendering(int gpuIdx, float ms) {
+    timesOfRendering[gpuIdx].push_back(ms);
+}
+
+float calcAvg(std::vector<float> &v) {
+    if (v.size() == 0)
+        return 0;
+    
+    float sum = 0;
+    for (int i = 0; i < v.size(); i++) {
+        sum += v[i];
+    }
+    return sum / v.size();
+}
+
+float GPUMonitor::avgTimeOfRendering(int gpuIdx) {
+    return calcAvg(timesOfRendering[gpuIdx]);
+}
+
+void GPUMonitor::updateImbalance(float im) {
+    loadImbalances.push_back(im);
+}
+
+float GPUMonitor::avgImbalance() {
+    return calcAvg(loadImbalances);
 }
 
 std::string GPUMonitor::getLatestStats() {
@@ -79,7 +108,12 @@ std::string GPUMonitor::getLatestStats() {
         stats << "MB|Mem Free GPU " << i << "|" << device_infos_[i].memory_info.free / 1000000 << "|";
         stats << "%|GPU Util GPU " << i << "|" << device_infos_[i].utilization.gpu << "|";
         stats << "%|Mem Util GPU " << i << "|" << device_infos_[i].utilization.memory << "|";
+        stats << "ms|TOR " << i << "|" << avgTimeOfRendering(i) << "|";
+        stats << "IM|Imbalance " << i << "|" << avgImbalance() << "|";
+        timesOfRendering[i] = {};
+        loadImbalances = {};
     }
+
     return stats.str();
 }
 
@@ -105,6 +139,14 @@ void MonitorThread::operator()() {
 
 void MonitorThread::updateFps() {
     monitor_.updateFps();
+}
+
+void MonitorThread::updateTimeOfRendering(int gpuIdx, float ms) {
+    monitor_.updateTimeOfRendering(gpuIdx, ms);
+}
+
+void MonitorThread::updateImbalance(float im) {
+    monitor_.updateImbalance(im);
 }
 
 void MonitorThread::safeTerminate() {

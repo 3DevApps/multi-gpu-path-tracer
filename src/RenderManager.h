@@ -439,6 +439,22 @@ public:
         }
     }
 
+    void updateMetrics(MonitorThread& monitorThreadObj) {
+        for (int i = 0; i < renderTasks_.size(); i++) {
+            monitorThreadObj.updateTimeOfRendering(i, renderTasks_[i].time);
+        }
+
+        float sum = 0;
+        float max = 0;
+        for (int i = 0; i < renderTasks_.size(); i++) {
+            sum += renderTasks_[i].time;
+            if (renderTasks_[i].time > max) {
+                max = renderTasks_[i].time;
+            }
+        }
+        monitorThreadObj.updateImbalance(max / (sum / renderTasks_.size()));
+    }
+
     void markTasks() {
         int boldness = framebuffer_->getResolution().height / 300;
         for (int i = 0; i < renderTasks_.size(); i++) {
