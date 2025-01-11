@@ -5,6 +5,8 @@
 #include <ixwebsocket/IXWebSocket.h>
 #include <ixwebsocket/IXUserAgent.h>
 #include <ixwebsocket/IXWebSocketSendData.h>
+#include <unordered_map>
+#include <vector>
 #include "../Renderer.h"
 #include "../../PixelDataEncoder/PixelDataEncoder.h"
 #include "../../PixelDataEncoder/JPEGEncoder.h"
@@ -25,6 +27,7 @@ public:
     std::vector<uint8_t> processFrameForStreaming(const uint8_t *frame);
     std::vector<uint8_t> processFrameForSnapshot(const uint8_t *frame);
     void renderFrame() override;
+    void renderFrame(long long duration) override;
     void send(const std::string &data) override;
     bool shouldStopRendering() override;
     void addMessageListener(Event::EventType eventType, LambdaFunction listener);
@@ -38,6 +41,8 @@ private:
     ix::WebSocket webSocket;
     ix::WebSocket streamingWebSocket;
     std::unordered_map<Event::EventType, LambdaFunction> eventListeners;
+    std::unordered_map<std::string, std::string> renderingStats;
+    std::vector<std::string> hehe;
     std::uint32_t view_width;
     std::uint32_t view_height;
     std::shared_ptr<PixelDataEncoder> snapshotDataEncoder;

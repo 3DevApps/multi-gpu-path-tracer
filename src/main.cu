@@ -77,13 +77,15 @@ int main(int argc, char** argv) {
     std::thread monitor_thread(std::ref(monitor_thread_obj));
 
     while (!renderer.shouldStopRendering()) {
+        if (!renderer.shouldRender) {
+            continue;
+        }
 
         auto start = std::chrono::high_resolution_clock::now();
         manager.renderFrame();
         auto stop = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-        std::cout << "Path Tracing took: " << duration.count() << "ms" << std::endl;
-        renderer.renderFrame();
+        long long duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
+        renderer.renderFrame(duration);
         manager.updateMetrics(monitor_thread_obj);
         monitor_thread_obj.updateFps();
 	}

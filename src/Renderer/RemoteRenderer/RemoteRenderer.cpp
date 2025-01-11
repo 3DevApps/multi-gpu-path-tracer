@@ -11,8 +11,31 @@ RemoteRenderer::RemoteRenderer(std::string &jobId, RendererConfig &config, std::
     webSocket.start();
 
     streamingWebSocket.setUrl(STREAMING_SERVER_URL + jobId);
-    streamingWebSocket.setOnMessageCallback([](const ix::WebSocketMessagePtr &msg) {
-        std::cout << "Streaming WebSocket message: " << msg->str << std::endl;
+    streamingWebSocket.setOnMessageCallback([this](const ix::WebSocketMessagePtr &msg) {
+        // Get current timestamp in ms
+        auto now = std::chrono::system_clock::now();
+        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+        long long duration = duration_ms.count();
+        auto durationString = std::to_string(duration);
+
+        // Get first timestamp
+        auto delimeterPos = msg->str.find("#");
+        auto firstTimestamp = msg->str.substr(0, delimeterPos);
+
+        if (hehe.size() < 1) {
+            return;
+        }
+
+        // Get front from hehe vector and rmove it
+        auto renderData = hehe.front();
+        hehe.erase(hehe.begin());
+
+        // remove entry from map
+        // renderingStats.erase(firstTimestamp);
+        streamingWebSocket.sendText(renderData + "#" + msg->str +  "#" + durationString);
+
+        // std::cout << "Streaming WebSocket message: " << msg->str << std::endl;
+        shouldRender = true;
     });
     streamingWebSocket.start();
 }
@@ -84,13 +107,37 @@ std::vector<uint8_t> RemoteRenderer::processFrameForSnapshot(const uint8_t *fram
 
 void RemoteRenderer::renderFrame()
 {
+}
+
+void RemoteRenderer::renderFrame(long long renderingDuration)
+{
     uint8_t *frame = framebuffer->getYUVPtr();
+
+    auto start = std::chrono::high_resolution_clock::now();
     std::vector<uint8_t> outputData = processFrameForStreaming(frame);
+    auto end = std::chrono::high_resolution_clock::now();
+    long long encodingTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+
+    // Get current timestamp in ms
+    auto now = std::chrono::system_clock::now();
+    auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+    long long duration = duration_ms.count();
+    auto durationStr = std::to_string(duration);
+
+    hehe.push_back(std::to_string(renderingDuration) + "#" + std::to_string(encodingTimeMs));
+    // renderingStats[durationStr] = std::to_string(renderingDuration) + "#" + std::to_string(encodingTimeMs);
+
+    // Attach the timestamp to the frame (first bytes)
+    outputData.insert(outputData.begin(), (uint8_t *)&duration, (uint8_t *)&duration + sizeof(duration));
+
     if (!outputData.empty())
     {
         ix::IXWebSocketSendData IXPixelData(outputData);
         streamingWebSocket.sendBinary(IXPixelData);
     }
+
+    shouldRender = false;
     generateAndSendSnapshotIfNeeded();
 }
 

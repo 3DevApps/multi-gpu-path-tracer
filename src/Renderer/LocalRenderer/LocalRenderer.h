@@ -17,6 +17,7 @@ public:
     LocalRenderer(Window &window, std::shared_ptr<Framebuffer> framebuffer);
     ~LocalRenderer() = default;
     void renderFrame() override;
+    void renderFrame(long long duration) override;
     bool shouldStopRendering() override;
     void send(const std::string &data) override {};
 
