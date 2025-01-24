@@ -2,7 +2,7 @@
 #SBATCH -N 1
 #SBATCH -p plgrid-gpu-v100
 #SBATCH -A plgggpuinz2024proper-gpu
-#SBATCH --gpus=2
+#SBATCH --gpus=4
 #SBATCH -t 01:00:00
 
 cd ~/multi-gpu-path-tracer

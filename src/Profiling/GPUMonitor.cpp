@@ -69,7 +69,7 @@ void GPUMonitor::updateTimeOfRendering(int gpuIdx, float ms) {
 float calcAvg(std::vector<float> &v) {
     if (v.size() == 0)
         return 0;
-    
+
     float sum = 0;
     for (int i = 0; i < v.size(); i++) {
         sum += v[i];
@@ -101,19 +101,26 @@ std::string GPUMonitor::getLatestStats() {
     }
 
     std::ostringstream stats;
-    for (int i = 0; i < device_count_; i++) {
-        stats << "FPS|FPS|" << fps_ << "|";
-        stats << "FPS|Average FPS|" << average_fps_ << "|";
-        stats << "MB|Mem Total GPU " << i << "|" << device_infos_[i].memory_info.total / 1000000 << "|";
-        stats << "MB|Mem Free GPU " << i << "|" << device_infos_[i].memory_info.free / 1000000 << "|";
-        stats << "%|GPU Util GPU " << i << "|" << device_infos_[i].utilization.gpu << "|";
-        stats << "%|Mem Util GPU " << i << "|" << device_infos_[i].utilization.memory << "|";
-        stats << "ms|TOR " << i << "|" << avgTimeOfRendering(i) << "|";
-        stats << "IM|Imbalance " << i << "|" << avgImbalance() << "|";
-        timesOfRendering[i] = {};
-        loadImbalances = {};
-    }
+    stats << "FPS|FPS|" << fps_ << "|";
+    stats << "FPS|Average FPS|" << average_fps_ << "|";
 
+    auto avgTimeOfRenderingTotal = 0.0;
+    for (int i = 0; i < device_count_; i++) {
+        avgTimeOfRenderingTotal += avgTimeOfRendering(i);
+    }
+    avgTimeOfRenderingTotal /= device_count_;
+
+    for (int i = 0; i < device_count_; i++) {
+        stats << "Mem Total (MB)|Mem Total GPU " << i << "|" << device_infos_[i].memory_info.total / 1000000 << "|";
+        stats << "Mem Free (MB)|Mem Free GPU " << i << "|" << device_infos_[i].memory_info.free / 1000000 << "|";
+        stats << "GPU Util (%)|GPU " << i << "|" << device_infos_[i].utilization.gpu << "|";
+        stats << "Mem Util (%)|GPU " << i << "|" << device_infos_[i].utilization.memory << "|";
+        stats << "Rendering Time (ms)|Rendering Time GPU " << i << "|" << avgTimeOfRendering(i) << "|";
+        timesOfRendering[i] = {};
+    }
+    stats << "Rendering Time (ms)|Rendering Time Total|" << avgTimeOfRenderingTotal << "|";
+    stats << "Load Imbalance|Load Imbalance|" << avgImbalance() << "|";
+    loadImbalances = {};
     return stats.str();
 }
 

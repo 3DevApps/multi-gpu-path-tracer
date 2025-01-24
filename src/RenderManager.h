@@ -113,7 +113,7 @@ public:
 
     void setKParameter(int val)
     {
-        newConfig_.kParam = val;
+        newConfig_.maxTasksInRow = val;
         shouldUpdatePathTracerParams = true;
     }
 
@@ -143,8 +143,9 @@ public:
             setup();
         }
 
-        if (config_.resolution.width != newConfig_.resolution.width || config_.resolution.height != newConfig_.resolution.height)
+        if (config_.resolution.width != newConfig_.resolution.width || config_.resolution.height != newConfig_.resolution.height || config_.maxTasksInRow != newConfig_.maxTasksInRow)
         {
+            config_.maxTasksInRow = newConfig_.maxTasksInRow;
             config_.resolution = newConfig_.resolution;
             framebuffer_->setResolution(config_.resolution);
             for (const auto &dpt : devicePathTracers_)
@@ -266,7 +267,7 @@ public:
             RenderTask rt = {
                 config_.threadBlockSize.x * width,
                 config_.threadBlockSize.y * height,
-                config_.threadBlockSize.x * offset_x, 
+                config_.threadBlockSize.x * offset_x,
                 config_.threadBlockSize.y * offset_y,
             };
             renderTasks_.push_back(rt);
@@ -451,37 +452,37 @@ public:
         for (int i = 0; i < renderTasks_.size(); i++) {
             if (renderTasks_[i].offset_y != 0) {
                 markTaskBorder(
-                    renderTasks_[i].offset_x, 
-                    renderTasks_[i].offset_x + renderTasks_[i].width, 
-                    renderTasks_[i].offset_y, 
-                    boldness, 
+                    renderTasks_[i].offset_x,
+                    renderTasks_[i].offset_x + renderTasks_[i].width,
+                    renderTasks_[i].offset_y,
+                    boldness,
                     true
                 );
             }
 
             markTaskBorder(
-                renderTasks_[i].offset_x, 
-                renderTasks_[i].offset_x + renderTasks_[i].width, 
-                renderTasks_[i].offset_y + renderTasks_[i].height, 
-                boldness, 
+                renderTasks_[i].offset_x,
+                renderTasks_[i].offset_x + renderTasks_[i].width,
+                renderTasks_[i].offset_y + renderTasks_[i].height,
+                boldness,
                 true
             );
 
             if (renderTasks_[i].offset_x != 0) {
                 markTaskBorder(
-                    renderTasks_[i].offset_y, 
-                    renderTasks_[i].offset_y + renderTasks_[i].height, 
-                    renderTasks_[i].offset_x, 
-                    boldness, 
+                    renderTasks_[i].offset_y,
+                    renderTasks_[i].offset_y + renderTasks_[i].height,
+                    renderTasks_[i].offset_x,
+                    boldness,
                     false
                 );
             }
 
             markTaskBorder(
-                renderTasks_[i].offset_y, 
-                renderTasks_[i].offset_y + renderTasks_[i].height, 
-                renderTasks_[i].offset_x + renderTasks_[i].width, 
-                boldness, 
+                renderTasks_[i].offset_y,
+                renderTasks_[i].offset_y + renderTasks_[i].height,
+                renderTasks_[i].offset_x + renderTasks_[i].width,
+                boldness,
                 false
             );
         }
@@ -492,7 +493,7 @@ public:
             for (int x = begin; x < end; x++) {
                 for (int yi = offset; yi <= offset + boldness && yi < framebuffer_->getResolution().height; yi++) {
                     int pixel_index = yi * framebuffer_->getResolution().width + x;
-                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+                    framebuffer_->updatePixel(pixel_index, 100, 100, 100);
                 }
             }
         }
@@ -500,7 +501,7 @@ public:
             for (int y = begin; y < end; y++) {
                 for (int xi = offset; xi <= offset + boldness && xi < framebuffer_->getResolution().width; xi++) {
                     int pixel_index = y * framebuffer_->getResolution().width + xi;
-                    framebuffer_->updatePixel(pixel_index, 0, 0, 0);
+                    framebuffer_->updatePixel(pixel_index, 100, 100, 100);
                 }
             }
         }
