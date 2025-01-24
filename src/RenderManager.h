@@ -135,17 +135,17 @@ public:
             config_.showTasks = newConfig_.showTasks;
         }
 
-        if (config_.gpuNumber != newConfig_.gpuNumber || config_.streamsPerGpu != newConfig_.streamsPerGpu)
+        if (config_.gpuNumber != newConfig_.gpuNumber || config_.streamsPerGpu != newConfig_.streamsPerGpu || config_.maxTasksInRow != newConfig_.maxTasksInRow)
         {
             reset();
             config_.gpuNumber = newConfig_.gpuNumber;
             config_.streamsPerGpu = newConfig_.streamsPerGpu;
+            config_.maxTasksInRow = newConfig_.maxTasksInRow;
             setup();
         }
 
-        if (config_.resolution.width != newConfig_.resolution.width || config_.resolution.height != newConfig_.resolution.height || config_.maxTasksInRow != newConfig_.maxTasksInRow)
+        if (config_.resolution.width != newConfig_.resolution.width || config_.resolution.height != newConfig_.resolution.height)
         {
-            config_.maxTasksInRow = newConfig_.maxTasksInRow;
             config_.resolution = newConfig_.resolution;
             framebuffer_->setResolution(config_.resolution);
             for (const auto &dpt : devicePathTracers_)
